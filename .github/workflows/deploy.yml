@@ -36,6 +36,8 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
