@@ -1,0 +1,10 @@
+# Backend dependencies for the Shelf Replenishment Workload Tracker.
+# Ranges (not exact pins) so they resolve cleanly on public PyPI.
+# Verified against: Django 5.2.x, DRF 3.15+, PyMySQL 1.1+.
+
+Django>=5.1,<5.3
+djangorestframework>=3.15
+PyMySQL>=1.1,<2            # pure-Python MySQL driver (no C compiler needed)
+python-dotenv>=1.0
+gunicorn>=21               # production WSGI server (used by Docker image)
+whitenoise>=6.6            # serves Django admin static files when DEBUG is off

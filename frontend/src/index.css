@@ -1,0 +1,437 @@
+/* ---------------------------------------------------------------------------
+   Shelf Replenishment Tracker — a plain, shop-floor-practical theme.
+   Light + dark via a [data-theme] attribute set on <html>; falls back to the
+   OS preference. No marketing styling: calm neutrals, one accent, big targets.
+--------------------------------------------------------------------------- */
+
+:root {
+  --bg: #f4f5f3;
+  --surface: #ffffff;
+  --surface-2: #eceee9;
+  --border: #d6d9d2;
+  --text: #1c2119;
+  --text-muted: #5c6356;
+  --accent: #2f6f4e;        /* practical green */
+  --accent-weak: #e2efe7;
+  --estimate: #3763a8;      /* forecast = blue */
+  --estimate-weak: #e4ecf7;
+  --actual: #2f6f4e;        /* measured = green */
+  --actual-weak: #e2efe7;
+  --warn: #b25a1a;
+  --warn-weak: #fbeadd;
+  --danger: #b23a3a;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15180f;
+    --surface: #1e2217;
+    --surface-2: #272c1f;
+    --border: #3a4030;
+    --text: #e8ebe0;
+    --text-muted: #9aa48c;
+    --accent: #6fbf8e;
+    --accent-weak: #22321f;
+    --estimate: #7fa6df;
+    --estimate-weak: #1d2636;
+    --actual: #6fbf8e;
+    --actual-weak: #22321f;
+    --warn: #e0954f;
+    --warn-weak: #332413;
+    --danger: #e07a7a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #15180f;
+  --surface: #1e2217;
+  --surface-2: #272c1f;
+  --border: #3a4030;
+  --text: #e8ebe0;
+  --text-muted: #9aa48c;
+  --accent: #6fbf8e;
+  --accent-weak: #22321f;
+  --estimate: #7fa6df;
+  --estimate-weak: #1d2636;
+  --actual: #6fbf8e;
+  --actual-weak: #22321f;
+  --warn: #e0954f;
+  --warn-weak: #332413;
+  --danger: #e07a7a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0 0 0.4em;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+h2 {
+  font-size: 1.15rem;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+.small {
+  font-size: 0.85rem;
+}
+.mono {
+  font-family: var(--mono);
+}
+
+/* --- Layout --------------------------------------------------------------- */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar .brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.topbar .brand small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.nav a {
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.nav a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.nav a.active {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.content {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+  flex: 1;
+}
+
+/* --- Cards & grids -------------------------------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.1rem 1.15rem;
+  margin-bottom: 1.1rem;
+}
+.card > h2:first-child,
+.card > h1:first-child {
+  margin-top: 0;
+}
+
+.grid {
+  display: grid;
+  gap: 0.9rem;
+}
+.grid.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+.grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.grid.cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 640px) {
+  .grid.cols-2,
+  .grid.cols-3 {
+    grid-template-columns: 1fr;
+  }
+  .grid.cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Big headline stats */
+.stat {
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 0.8rem 0.9rem;
+}
+.stat .label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.stat .value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat.estimate {
+  background: var(--estimate-weak);
+}
+.stat.actual {
+  background: var(--actual-weak);
+}
+
+/* --- Pills / badges ------------------------------------------------------- */
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.pill.estimate {
+  background: var(--estimate-weak);
+  color: var(--estimate);
+}
+.pill.actual {
+  background: var(--actual-weak);
+  color: var(--actual);
+}
+.pill.status-planned {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.pill.status-in_progress {
+  background: var(--estimate-weak);
+  color: var(--estimate);
+}
+.pill.status-complete {
+  background: var(--actual-weak);
+  color: var(--actual);
+}
+.pill.status-partial {
+  background: var(--warn-weak);
+  color: var(--warn);
+}
+.pill.status-blocked {
+  background: var(--warn-weak);
+  color: var(--danger);
+}
+
+/* --- Forms ---------------------------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.7rem;
+}
+.field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.field .unit {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.6rem;
+  min-height: 42px;
+  width: 100%;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.field .note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  min-height: 42px;
+}
+.btn:hover {
+  border-color: var(--text-muted);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+:root[data-theme="dark"] .btn.primary,
+:root:not([data-theme="light"]) .btn.primary {
+  color: #0d130c;
+}
+.btn.ghost {
+  background: transparent;
+}
+.btn.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: transparent;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* --- Tables --------------------------------------------------------------- */
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+td.num,
+th.num {
+  text-align: right;
+}
+
+/* --- Misc ----------------------------------------------------------------- */
+.banner {
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  margin-bottom: 0.9rem;
+}
+.banner.info {
+  background: var(--estimate-weak);
+  color: var(--estimate);
+}
+.banner.warn {
+  background: var(--warn-weak);
+  color: var(--warn);
+}
+.banner.error {
+  background: var(--warn-weak);
+  color: var(--danger);
+}
+.eq {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  background: var(--surface-2);
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 1rem 0;
+}
+.center {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+}
+.login-card {
+  width: 100%;
+  max-width: 360px;
+}
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.inline-input {
+  max-width: 120px;
+  display: inline-block;
+}

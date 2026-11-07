@@ -1,0 +1,60 @@
+# Docker Compose for the Shelf Replenishment Workload Tracker.
+# Three services on one network: MySQL, the Django/gunicorn API, and an nginx
+# container that serves the built React app and reverse-proxies /api to the API
+# (single origin -> session + CSRF cookies work without CORS).
+#
+#   docker compose up --build
+#   open http://localhost:8080   (sign in with the seeded demo user)
+#
+# Values come from the sibling .env file (copy .env.example to .env first).
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-shelf_tracker}
+      MYSQL_USER: ${DB_USER:-shelf}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-shelfpass}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_ENGINE: mysql
+      DB_NAME: ${DB_NAME:-shelf_tracker}
+      DB_USER: ${DB_USER:-shelf}
+      DB_PASSWORD: ${DB_PASSWORD:-shelfpass}
+      DB_HOST: db
+      DB_PORT: "3306"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-env}
+      DJANGO_DEBUG: "false"
+      # Local HTTP demo: keep cookies non-secure. Set true behind real HTTPS.
+      DJANGO_SECURE_COOKIES: "false"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "http://localhost:8080"
+      SEED_ON_START: "true"
+      SEED_USER: ${SEED_USER:-demo}
+      SEED_PASSWORD: ${SEED_PASSWORD:-demo12345}
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  dbdata:
