@@ -1,8 +1,6 @@
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/reza76py/bun_refeeding_tracker-backend:latest
     restart: unless-stopped
     env_file: ./.env
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120
@@ -18,9 +16,7 @@ services:
       retries: 5
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/reza76py/bun_refeeding_tracker-frontend:latest
     restart: unless-stopped
     ports:
       - "8083:80"
