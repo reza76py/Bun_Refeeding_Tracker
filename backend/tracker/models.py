@@ -208,6 +208,48 @@ class AisleCage(models.Model):
         return _row_seconds(self.lines, self.seconds_per_line)
 
 
+class CageFeed(models.Model):
+    """How much of a Plan cage (0-100 %) was fed onto the shelf on a date."""
+
+    cage = models.ForeignKey(AisleCage, on_delete=models.CASCADE, related_name="feeds")
+    feed_date = models.DateField()
+    percent = models.PositiveSmallIntegerField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+
+    class Meta:
+        ordering = ["feed_date", "cage_id"]
+        unique_together = [("cage", "feed_date")]
+
+    def __str__(self) -> str:
+        return f"{self.cage} on {self.feed_date}: {self.percent}%"
+
+
+
+class CageSession(models.Model):
+    """One real refeeding session of a Plan cage (Clock page). A cage keeps
+    every session as history (training data); it may span several days. The
+    "open" session is the cage's latest row with no end_at."""
+
+    cage = models.ForeignKey(AisleCage, on_delete=models.CASCADE, related_name="sessions")
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["start_at", "id"]
+        indexes = [models.Index(fields=["cage", "end_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.cage} {self.start_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def duration_seconds(self):
+        if self.start_at is None or self.end_at is None:
+            return None
+        return int((self.end_at - self.start_at).total_seconds())
+
+
 class AssumptionSet(models.Model):
     """An immutable, versioned set of planning assumptions for one user."""
 

@@ -168,3 +168,51 @@ export interface CatalogueSummary {
   combined_estimated_seconds: number | null;
   note: string;
 }
+
+// --- Today: how much of each cage was fed on a date -------------------------
+export interface FeedCage {
+  cage_id: number;
+  code: string;
+  planned_minutes: number;
+  percent: number;
+  /** Clock start/end for this cage on the date; null = none recorded. */
+  session: { start_at: string; end_at: string | null } | null;
+}
+
+export interface FeedAisle {
+  aisle_id: number;
+  label: string;
+  percent_fed: number;
+  cages: FeedCage[];
+}
+
+export interface FeedSummary {
+  date: string;
+  aisles: FeedAisle[];
+  percent_fed: number;
+}
+
+// --- Clock: real start / end sessions per cage ------------------------------
+export interface ClockSession {
+  id: number;
+  start_at: string; // ISO timestamp
+  end_at: string | null;
+  duration_seconds: number | null;
+}
+
+export interface ClockCage {
+  cage_id: number;
+  code: string;
+  open_session: { id: number; start_at: string } | null;
+  last_session: ClockSession | null;
+}
+
+export interface ClockAisle {
+  aisle_id: number;
+  label: string;
+  cages: ClockCage[];
+}
+
+export interface ClockSummary {
+  aisles: ClockAisle[];
+}

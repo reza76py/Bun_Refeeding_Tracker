@@ -610,3 +610,57 @@ class CageMinutesTests(AuthMixin, APITestCase):
     def test_minutes_out_of_range_rejected(self):
         self.assertEqual(self._cage({"code": "X", "minutes": -1}).status_code, 400)
         self.assertEqual(self._cage({"code": "Y", "minutes": 1441}).status_code, 400)
+
+
+class CageFeedTests(AuthMixin, APITestCase):
+    def setUp(self):
+        self.user = self.make_user("feeder")
+        self.client.force_authenticate(self.user)
+        aid = self.client.post("/api/aisles/", {"label": "1"}, format="json").json()["id"]
+        mk = lambda code, mins: self.client.post(  # noqa: E731
+            f"/api/aisles/{aid}/cages/", {"code": code, "minutes": mins}, format="json"
+        ).json()["id"]
+        self.a1 = mk("A1", 60)
+        self.a2 = mk("A2", 20)
+
+    def _put(self, cage_id, percent, day="2026-11-09"):
+        return self.client.put(
+            "/api/feed/", {"date": day, "cage_id": cage_id, "percent": percent}, format="json"
+        )
+
+    def _summary(self, day="2026-11-09"):
+        return self.client.get(f"/api/feed/summary/?date={day}").json()
+
+    def test_upsert_saves_then_updates(self):
+        from tracker.models import CageFeed
+
+        self.assertEqual(self._put(self.a1, 40).status_code, 200)
+        self.assertEqual(self._put(self.a1, 100).json()["percent"], 100)
+        self.assertEqual(CageFeed.objects.filter(cage_id=self.a1).count(), 1)
+        cages = self._summary()["aisles"][0]["cages"]
+        self.assertEqual({c["code"]: c["percent"] for c in cages}, {"A1": 100, "A2": 0})
+        # Another date is independent.
+        self.assertEqual(self._summary("2026-11-10")["percent_fed"], 0)
+
+    def test_percent_fed_is_time_weighted(self):
+        self._put(self.a1, 40)   # 60 min
+        self._put(self.a2, 100)  # 20 min
+        s = self._summary()
+        # (60*40 + 20*100) / 80 = 55, not the plain average 70.
+        self.assertEqual(s["percent_fed"], 55)
+        self.assertEqual(s["aisles"][0]["percent_fed"], 55)
+        self.assertEqual(s["aisles"][0]["cages"][0]["planned_minutes"], 60)
+        self._put(self.a1, 50)  # (3000 + 2000) / 80 = 62.5 -> rounds half up
+        self.assertEqual(self._summary()["percent_fed"], 63)
+
+    def test_percent_range_validated(self):
+        self.assertEqual(self._put(self.a1, 101).status_code, 400)
+        self.assertEqual(self._put(self.a1, -1).status_code, 400)
+        self.assertEqual(self._put(self.a1, "abc").status_code, 400)
+
+    def test_other_users_cage_is_404(self):
+        other = self.make_user("intruder")
+        self.client.force_authenticate(other)
+        self.assertEqual(self._put(self.a1, 50).status_code, 404)
+        self.assertEqual(self._summary()["aisles"], [])
+

@@ -1,49 +1,7 @@
 import {
-  useEffect,
-  useState,
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
-
-// --- Theme toggle (light/dark, persisted) ----------------------------------
-type Theme = "light" | "dark" | "system";
-
-export function useTheme(): [Theme, (t: Theme) => void] {
-  const [theme, setThemeState] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) || "system"
-  );
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "system") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-  return [theme, setThemeState];
-}
-
-export function ThemeToggle() {
-  const [theme, setTheme] = useTheme();
-  const next: Record<Theme, Theme> = {
-    system: "light",
-    light: "dark",
-    dark: "system",
-  };
-  const label: Record<Theme, string> = {
-    system: "Auto",
-    light: "Light",
-    dark: "Dark",
-  };
-  return (
-    <button
-      className="btn ghost small"
-      onClick={() => setTheme(next[theme])}
-      title="Toggle light / dark / auto"
-      aria-label={`Theme: ${label[theme]}`}
-    >
-      {label[theme]}
-    </button>
-  );
-}
 
 // --- Inputs ----------------------------------------------------------------
 interface NumberFieldProps

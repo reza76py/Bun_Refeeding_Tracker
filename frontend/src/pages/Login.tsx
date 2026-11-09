@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth";
 import { ApiError } from "../api/client";
-import { Banner, ThemeToggle } from "../components/ui";
+import { Banner } from "../components/ui";
 
 export default function Login() {
   const { login } = useAuth();
@@ -32,7 +32,6 @@ export default function Login() {
       <div className="card login-card">
         <div className="row-between" style={{ marginBottom: "0.5rem" }}>
           <h1 style={{ margin: 0 }}>Shelf Tracker</h1>
-          <ThemeToggle />
         </div>
         <p className="muted small">
           Personal replenishment workload tool. Sign in to continue.

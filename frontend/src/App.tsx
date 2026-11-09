@@ -1,8 +1,9 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
-import { ThemeToggle } from "./components/ui";
 import Login from "./pages/Login";
-import Settings from "./pages/Settings";
+import Plan from "./pages/Plan";
+import Today from "./pages/Today";
+import Clock from "./pages/Clock";
 
 function TopBar() {
   const { user, logout } = useAuth();
@@ -10,17 +11,18 @@ function TopBar() {
     isActive ? "active" : "";
   return (
     <header className="topbar">
-      <div className="brand">
-        Shelf Tracker
-        <small>Replenishment workload</small>
-      </div>
       <nav className="nav">
         <NavLink to="/" end className={link}>
-          Settings
+          Plan
+        </NavLink>
+        <NavLink to="/today" className={link}>
+          Today
+        </NavLink>
+        <NavLink to="/clock" className={link}>
+          Clock
         </NavLink>
       </nav>
       <div className="btn-row">
-        <ThemeToggle />
         {user && (
           <button className="btn ghost small" onClick={() => logout()}>
             Sign out
@@ -49,7 +51,10 @@ export default function App() {
       <TopBar />
       <main className="content">
         <Routes>
-          <Route path="/" element={<Settings />} />
+          <Route path="/" element={<Plan />} />
+          <Route path="/plan" element={<Navigate to="/" replace />} />
+          <Route path="/today" element={<Today />} />
+          <Route path="/clock" element={<Clock />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

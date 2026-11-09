@@ -1,6 +1,6 @@
-from django.urls import path
+from django.urls import path, re_path
 
-from tracker import views
+from tracker import clock_views, views
 
 urlpatterns = [
     # Auth
@@ -19,6 +19,16 @@ urlpatterns = [
     path("aisles/<int:aisle_id>/cages/", views.AisleCageListView.as_view()),
     path("aisle-cages/<int:pk>/", views.AisleCageDetailView.as_view()),
     path("catalogue/summary/", views.CatalogueSummaryView.as_view()),
+    # Today: % fed per cage per date
+    path("feed/summary/", views.FeedSummaryView.as_view()),
+    path("feed/", views.FeedSetView.as_view()),
+    # Clock: real start / end sessions per cage (trailing slash optional)
+    path("clock/summary/", clock_views.ClockSummaryView.as_view()),
+    re_path(r"^clock/start/?$", clock_views.ClockStartView.as_view()),
+    re_path(r"^clock/end/?$", clock_views.ClockEndView.as_view()),
+    re_path(r"^clock/cancel/?$", clock_views.ClockCancelView.as_view()),
+    re_path(r"^clock/manual/?$", clock_views.ClockManualView.as_view()),
+    path("clock/export.csv", clock_views.ClockExportView.as_view()),
     # Assumptions
     path("assumptions/", views.AssumptionListCreateView.as_view()),
     path("assumptions/active/", views.ActiveAssumptionView.as_view()),

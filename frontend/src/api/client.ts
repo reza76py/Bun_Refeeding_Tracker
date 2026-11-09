@@ -18,6 +18,9 @@ import type {
   Store,
   User,
   WorkDay,
+  FeedSummary,
+  ClockSession,
+  ClockSummary,
 } from "./types";
 
 const BASE = "/api";
@@ -157,6 +160,32 @@ export const api = {
     request<void>("DELETE", `/aisle-cages/${id}/`),
   catalogue: () => request<CatalogueSummary>("GET", "/catalogue/summary/"),
 
+  // Today: how much (0-100 %) of each cage was fed on a date.
+  feedSummary: (date: string) =>
+    request<FeedSummary>("GET", `/feed/summary/?date=${date}`),
+  setFeed: (body: { date: string; cage_id: number; percent: number }) =>
+    request<{ cage_id: number; date: string; percent: number }>(
+      "PUT",
+      "/feed/",
+      body
+    ),
+
+  // Clock: real start / end sessions per cage (kept as history).
+  clockSummary: () => request<ClockSummary>("GET", "/clock/summary/"),
+  clockStart: (cageId: number) =>
+    request<ClockSession>("POST", "/clock/start", { cage_id: cageId }),
+  clockEnd: (cageId: number) =>
+    request<ClockSession>("POST", "/clock/end", { cage_id: cageId }),
+  /** Record a finished session by hand (local Brisbane "YYYY-MM-DDTHH:MM"). */
+  clockManual: (cageId: number, startAt: string, endAt: string) =>
+    request<ClockSession>("POST", "/clock/manual", {
+      cage_id: cageId,
+      start_at: startAt,
+      end_at: endAt,
+    }),
+  clockCancel: (cageId: number) =>
+    request<{ cancelled: boolean }>("POST", "/clock/cancel", { cage_id: cageId }),
+
   // Assumptions
   assumptions: () => request<AssumptionSet[]>("GET", "/assumptions/"),
   activeAssumptions: () => request<AssumptionSet>("GET", "/assumptions/active/"),
@@ -196,3 +225,6 @@ export const api = {
   reports: (from: string, to: string) =>
     request<ReportsSummary>("GET", `/reports/summary/?from=${from}&to=${to}`),
 };
+
+/** Download link for every Clock session as CSV (the training dataset). */
+export const clockExportUrl = `${BASE}/clock/export.csv`;

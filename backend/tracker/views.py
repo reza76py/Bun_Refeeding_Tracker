@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import generics, status
@@ -28,7 +30,17 @@ from tracker.calculations import (
     scenario_table,
     seconds_to_hm,
 )
-from tracker.models import Aisle, AisleCage, AssumptionSet, Bay, CageLog, Store, WorkDay
+from tracker.models import (
+    Aisle,
+    AisleCage,
+    AssumptionSet,
+    Bay,
+    CageFeed,
+    CageLog,
+    CageSession,
+    Store,
+    WorkDay,
+)
 from tracker.serializers import (
     AisleCageSerializer,
     AisleSerializer,
@@ -601,3 +613,141 @@ class ReportsSummaryView(APIView):
                 "rows": rows,
             }
         )
+
+
+# --- Today: how much of each cage was fed onto the shelf ---------------------
+
+def _percent_fed(rows):
+    """rows: (planned_seconds, percent). sum(planned * percent/100) /
+    sum(planned) * 100 as a whole %, rounded half up; 0 with no planned time."""
+    total = sum(sec for sec, _ in rows)
+    if total == 0:
+        return 0
+    return int(sum(sec * pct for sec, pct in rows) / total + 0.5)
+
+
+def _feed_session(sess):
+    """A cage's Clock session on Today: {start_at, end_at} or None."""
+    if sess is None:
+        return None
+    return {"start_at": sess.start_at, "end_at": sess.end_at}
+
+
+class FeedSummaryView(APIView):
+    """GET /api/feed/summary/?date=YYYY-MM-DD (default: today, store time)."""
+
+    def get(self, request):
+        raw = request.query_params.get("date")
+        day = _parse_date(raw) if raw else timezone.localdate()
+        if day is None:
+            raise ValidationError({"date": "Use YYYY-MM-DD."})
+        aisles = Aisle.objects.filter(store__owner=request.user).prefetch_related("cages")
+        saved = dict(
+            CageFeed.objects.filter(
+                cage__aisle__store__owner=request.user, feed_date=day
+            ).values_list("cage_id", "percent")
+        )
+        # Clock session per cage for this date: one that started on or before
+        # the date and ended on/after it (or is still running). Latest wins.
+        session_by_cage = {}
+        for sess in (
+            CageSession.objects.filter(
+                cage__aisle__store__owner=request.user, start_at__date__lte=day
+            )
+            .filter(Q(end_at__isnull=True) | Q(end_at__date__gte=day))
+            .order_by("start_at", "id")
+        ):
+            session_by_cage[sess.cage_id] = sess
+        out, all_rows = [], []
+        for aisle in aisles:
+            cages, rows = [], []
+            for cage in aisle.cages.all():
+                secs = cage.estimated_seconds or 0
+                pct = saved.get(cage.id, 0)
+                rows.append((secs, pct))
+                cages.append(
+                    {
+                        "cage_id": cage.id,
+                        "code": cage.code,
+                        "planned_minutes": secs / 60,
+                        "percent": pct,
+                        "session": _feed_session(session_by_cage.get(cage.id)),
+                    }
+                )
+            all_rows += rows
+            out.append(
+                {
+                    "aisle_id": aisle.id,
+                    "label": aisle.label,
+                    "percent_fed": _percent_fed(rows),
+                    "cages": cages,
+                }
+            )
+        return Response(
+            {
+                "date": day.isoformat(),
+                "aisles": out,
+                "percent_fed": _percent_fed(all_rows),
+            }
+        )
+
+
+class FeedSetView(APIView):
+    """PUT /api/feed/ {date, cage_id, percent}: create or update one cage's %."""
+
+    def put(self, request):
+        data = request.data
+        day = _parse_date(data.get("date"))
+        if day is None:
+            raise ValidationError({"date": "Use YYYY-MM-DD."})
+        percent = data.get("percent")
+        if isinstance(percent, bool) or not isinstance(percent, int):
+            raise ValidationError({"percent": "Must be a whole number 0-100."})
+        if not 0 <= percent <= 100:
+            raise ValidationError({"percent": "Must be between 0 and 100."})
+        cage = generics.get_object_or_404(
+            AisleCage, id=data.get("cage_id"), aisle__store__owner=request.user
+        )
+        with transaction.atomic():  # percent + Clock sync succeed or fail together
+            try:
+                with transaction.atomic():
+                    CageFeed.objects.update_or_create(
+                        cage=cage, feed_date=day, defaults={"percent": percent}
+                    )
+            except IntegrityError:
+                # A concurrent request created the row first; update it.
+                CageFeed.objects.filter(cage=cage, feed_date=day).update(
+                    percent=percent
+                )
+            _sync_clock_from_feed(cage, day, percent)
+        return Response(
+            {"cage_id": cage.id, "date": day.isoformat(), "percent": percent}
+        )
+
+
+def _sync_clock_from_feed(cage, day, percent):
+    """Today -> Clock. (Clock "end" -> Today is done in clock_views.)
+
+    - Below 100%: reopen the cage's session that ended on `day` (Brisbane
+      date), undoing its "End" — unless the cage already has a running one.
+    - 100%: close the cage's running session now. With no session, nothing
+      is invented; only the percent is stored.
+    """
+    with transaction.atomic():
+        sessions = CageSession.objects.select_for_update().filter(cage=cage)
+        running = sessions.filter(end_at__isnull=True).order_by("-start_at", "-id").first()
+        if percent < 100:
+            if running is not None:
+                return
+            ended = (
+                sessions.filter(end_at__isnull=False, end_at__date=day)
+                .order_by("-end_at", "-id")
+                .first()
+            )
+            if ended is not None:
+                ended.end_at = None
+                ended.save(update_fields=["end_at"])
+        elif running is not None:
+            running.end_at = timezone.now()
+            running.save(update_fields=["end_at"])
+

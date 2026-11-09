@@ -1,54 +1,10 @@
 /* ---------------------------------------------------------------------------
    Shelf Replenishment Tracker — a plain, shop-floor-practical theme.
-   Light + dark via a [data-theme] attribute set on <html>; falls back to the
-   OS preference. No marketing styling: calm neutrals, one accent, big targets.
+   Dark only. No marketing styling: calm neutrals, one accent, big targets.
 --------------------------------------------------------------------------- */
 
 :root {
-  --bg: #f4f5f3;
-  --surface: #ffffff;
-  --surface-2: #eceee9;
-  --border: #d6d9d2;
-  --text: #1c2119;
-  --text-muted: #5c6356;
-  --accent: #2f6f4e;        /* practical green */
-  --accent-weak: #e2efe7;
-  --estimate: #3763a8;      /* forecast = blue */
-  --estimate-weak: #e4ecf7;
-  --actual: #2f6f4e;        /* measured = green */
-  --actual-weak: #e2efe7;
-  --warn: #b25a1a;
-  --warn-weak: #fbeadd;
-  --danger: #b23a3a;
-  --radius: 10px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #15180f;
-    --surface: #1e2217;
-    --surface-2: #272c1f;
-    --border: #3a4030;
-    --text: #e8ebe0;
-    --text-muted: #9aa48c;
-    --accent: #6fbf8e;
-    --accent-weak: #22321f;
-    --estimate: #7fa6df;
-    --estimate-weak: #1d2636;
-    --actual: #6fbf8e;
-    --actual-weak: #22321f;
-    --warn: #e0954f;
-    --warn-weak: #332413;
-    --danger: #e07a7a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
-  }
-}
-
-:root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #15180f;
   --surface: #1e2217;
   --surface-2: #272c1f;
@@ -65,6 +21,10 @@
   --warn-weak: #332413;
   --danger: #e07a7a;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --radius: 10px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
 * {
@@ -300,8 +260,8 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.55rem 0.6rem;
-  min-height: 42px;
+  padding: 0.35rem 0.55rem;
+  min-height: 34px;
   width: 100%;
 }
 input:focus,
@@ -322,9 +282,16 @@ textarea:focus {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  border-radius: 8px;
-  padding: 0.55rem 0.9rem;
-  min-height: 42px;
+  border-radius: 7px;
+  padding: 0.3rem 0.8rem;
+  min-height: 34px;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+.btn.small {
+  padding: 0.2rem 0.55rem;
+  min-height: 28px;
+  font-size: 0.82rem;
 }
 .btn:hover {
   border-color: var(--text-muted);
@@ -332,12 +299,9 @@ textarea:focus {
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
-}
-:root[data-theme="dark"] .btn.primary,
-:root:not([data-theme="light"]) .btn.primary {
   color: #0d130c;
 }
+
 .btn.ghost {
   background: transparent;
 }
@@ -382,6 +346,49 @@ th {
 td.num,
 th.num {
   text-align: right;
+}
+
+/* Phones / touch screens: slightly bigger targets than desktop, but still
+   compact. 16px input text stops iOS from zooming in on focus. */
+@media (max-width: 640px), (pointer: coarse) {
+  .btn {
+    min-height: 38px;
+    padding: 0.35rem 0.85rem;
+  }
+  .btn.small {
+    min-height: 34px;
+    padding: 0.25rem 0.65rem;
+  }
+  input,
+  select,
+  textarea {
+    min-height: 40px;
+    font-size: 16px;
+  }
+  .inline-input {
+    min-height: 34px;
+  }
+  .cage-table .col-time {
+    width: 90px;
+  }
+  .cage-table .col-actions {
+    width: 140px;
+  }
+  .cage-table input.feed-check {
+    width: 28px;
+    height: 28px;
+    min-height: 0;
+  }
+}
+@media (max-width: 640px) {
+  th,
+  td {
+    padding: 0.45rem 0.4rem;
+  }
+  .content {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+  }
 }
 
 /* --- Misc ----------------------------------------------------------------- */
@@ -432,6 +439,84 @@ th.num {
   gap: 0.5rem;
 }
 .inline-input {
-  max-width: 120px;
+  width: 100%;
+  max-width: 140px;
   display: inline-block;
+  min-height: 28px;
+  padding: 0.2rem 0.45rem;
+}
+
+/* Cage tables: fixed columns so every aisle lines up the same. */
+.cage-table {
+  table-layout: fixed;
+}
+.cage-table .col-time {
+  width: 110px;
+}
+.cage-table .col-actions {
+  width: 150px;
+}
+.cage-table .col-fed {
+  width: 70px;
+}
+.cage-table .col-pct {
+  width: 100px;
+}
+/* Today: one big, easy-to-tap checkbox per cage. */
+input.feed-check {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.cage-table td {
+  height: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Clock page ------------------------------------------------------------ */
+.clock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  min-height: 52px;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.btn.clock-btn {
+  min-width: 96px;
+}
+.clock-last {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .clock-row .btn-row {
+    width: 100%;
+  }
+  .btn.clock-btn {
+    flex: 1;
+    min-height: 44px;
+  }
+}
+
+/* Today: inline start/end prompt for a cage with no Clock session. */
+.cage-table tr.manual-row td {
+  height: auto;
+  overflow: visible;
+  white-space: normal;
+  padding-top: 0.25rem;
+}
+.manual-row input[type="datetime-local"] {
+  width: auto;
+  flex: 1 1 170px;
+  min-width: 0;
 }

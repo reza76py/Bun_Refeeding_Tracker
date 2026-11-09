@@ -12,3 +12,4 @@ frontend/.vite/
 .vscode/
 .idea/
 .DS_Store
+.xlsx
