@@ -1003,8 +1003,9 @@ input.feed-check {
    The two rows of lanes become two columns running down the screen (left:
    Aisle 8 -> 16, right: Aisle 7 -> 2). Lanes become short horizontal strips
    with a readable label and the cage icons on the right; shelves become thin
-   horizontal bars between them. Desktop / tablet are unchanged. */
-@media (max-width: 640px) {
+   horizontal bars between them. Applies up to 820px wide (every phone in
+   portrait, and small tablets); wider screens keep the horizontal plan. */
+@media (max-width: 820px) {
   .floor-wrap {
     overflow-x: visible;
   }
