@@ -5,11 +5,12 @@ import {
   useState,
 } from "react";
 import { api, ApiError } from "../api/client";
+import { useAuth } from "../auth";
 import type { Aisle, AisleCage, RunningCage } from "../api/types";
 import { CageCard } from "../components/CageCard";
 import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
-import { aisleName, dur } from "../lib/format";
+import { aisleName, dur, toBrisbaneLocal } from "../lib/format";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
 import {
   ageHue,
@@ -400,6 +401,13 @@ function AisleBlock({
               cage={cage}
               hue={cageHue(cage.id, unfinished, now)}
               spinning={running.has(cage.id)}
+              createdMs={unfinished.get(cage.id)}
+              onSetCreated={(when) =>
+                run(async () => {
+                  await api.adminSetCreated(cage.id, when);
+                  await onChanged();
+                })
+              }
               disabled={busy}
               onSave={(c, m) =>
                 run(async () => {
@@ -479,6 +487,8 @@ function CageTile({
   cage,
   hue,
   spinning,
+  createdMs,
+  onSetCreated,
   disabled,
   onSave,
   onDelete,
@@ -487,17 +497,32 @@ function CageTile({
   /** Age colour (null = finished -> grey). */
   hue: number | null;
   spinning: boolean;
+  /** When the cage was created (ms), if known from /api/graph/running/. */
+  createdMs: number | undefined;
+  /** Admin only: change the cage's created time (Brisbane local). */
+  onSetCreated: (when: string) => Promise<boolean>;
   disabled: boolean;
   onSave: (code: string, minutes: number | null) => Promise<boolean>;
   onDelete: () => void;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  // Admin testing aid: the cage's created time (default now when unknown).
+  const createdLocal = toBrisbaneLocal(
+    new Date(createdMs ?? Date.now()).toISOString()
+  );
   const [editing, setEditing] = useState(false);
   const [code, setCode] = useState(cage.code);
   const [mins, setMins] = useState<number | "">(cage.minutes ?? "");
+  const [created, setCreated] = useState(createdLocal);
+  // Only send the created time if admin actually changed it.
+  const [createdTouched, setCreatedTouched] = useState(false);
 
   const reset = () => {
     setCode(cage.code);
     setMins(cage.minutes ?? "");
+    setCreated(createdLocal);
+    setCreatedTouched(false);
   };
   useEffect(() => {
     if (!editing) reset();
@@ -538,7 +563,11 @@ function CageTile({
   async function save() {
     const c = code.trim();
     const unchanged = c === cage.code && nMins === cage.minutes;
-    if (unchanged || (await onSave(c, nMins))) setEditing(false);
+    if (!(unchanged || (await onSave(c, nMins)))) return;
+    if (isAdmin && createdTouched && created) {
+      if (!(await onSetCreated(created))) return;
+    }
+    setEditing(false);
   }
   const cancel = () => {
     reset();
@@ -578,6 +607,23 @@ function CageTile({
         onKeyDown={onKey}
         onChange={(e) => setMins(num(e.target.value))}
       />
+      {isAdmin && (
+        <>
+          <span className="small muted">Created</span>
+          <input
+            className="inline-input"
+            type="datetime-local"
+            aria-label={`Created time for ${cage.code}`}
+            value={created}
+            disabled={disabled}
+            onKeyDown={onKey}
+            onChange={(e) => {
+              setCreated(e.target.value);
+              setCreatedTouched(true);
+            }}
+          />
+        </>
+      )}
       <div className="btn-row">
         <button className="btn primary small" onClick={save} disabled={disabled}>
           Save
