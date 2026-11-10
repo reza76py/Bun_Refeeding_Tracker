@@ -150,6 +150,7 @@ class AisleListView(generics.ListCreateAPIView):
         ctx = super().get_serializer_context()
         if self.request.method == "POST":
             ctx["store"] = services.get_shared_store()
+        ctx["finished_ids"] = services.finished_cage_ids(services.get_shared_store())
         return ctx
 
     def perform_create(self, serializer):
@@ -179,6 +180,11 @@ class AisleDetailView(generics.RetrieveUpdateDestroyAPIView):
             .prefetch_related("bays", "cages")
             .select_related("store")
         )
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["finished_ids"] = services.finished_cage_ids(services.get_shared_store())
+        return ctx
 
     def perform_update(self, serializer):
         _save_or_400(serializer, "This aisle already exists.")
@@ -648,6 +654,7 @@ class FeedSummaryView(APIView):
                 cage__aisle__store=store, feed_date=day
             ).values_list("cage_id", "percent")
         )
+        finished_ids = services.finished_cage_ids(store)
         # Clock session per cage for this date: one that started on or before
         # the date and ended on/after it (or is still running). Latest wins.
         session_by_cage = {}
@@ -673,6 +680,7 @@ class FeedSummaryView(APIView):
                         "planned_minutes": secs / 60,
                         "percent": pct,
                         "session": _feed_session(session_by_cage.get(cage.id)),
+                        "finished": cage.id in finished_ids,
                     }
                 )
             all_rows += rows

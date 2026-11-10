@@ -12,7 +12,7 @@ from django.db import transaction
 from django.db.models import Count, Max
 
 from tracker.calculations import Assumptions
-from tracker.models import AssumptionSet, Store
+from tracker.models import AisleCage, AssumptionSet, CageFeed, CageSession, Store
 
 User = get_user_model()
 
@@ -79,6 +79,26 @@ def create_assumption_version(owner, **fields) -> AssumptionSet:
         other_sec=data["other_sec"],
         provenance=fields.get("provenance", "user_estimate"),
         notes=fields.get("notes", ""),
+    )
+
+
+def finished_cage_ids(store: Store) -> set[int]:
+    """Cages that are FINISHED: ended on Clock (a session with end_at set) or
+    100% on Today. Same rule /api/graph/running/ uses to leave cages out.
+    Pages hide these from view; the records themselves are kept."""
+    ended = CageSession.objects.filter(
+        cage__aisle__store=store, end_at__isnull=False
+    ).values_list("cage_id", flat=True)
+    fed = CageFeed.objects.filter(
+        cage__aisle__store=store, percent=100
+    ).values_list("cage_id", flat=True)
+    return set(ended) | set(fed)
+
+
+def is_cage_finished(cage: AisleCage) -> bool:
+    return (
+        CageSession.objects.filter(cage=cage, end_at__isnull=False).exists()
+        or CageFeed.objects.filter(cage=cage, percent=100).exists()
     )
 
 

@@ -7,10 +7,14 @@ import {
 import { api } from "../api/client";
 import type { FeedAisle, FeedCage, FeedSummary, RunningCage } from "../api/types";
 import { CageCard } from "../components/CageCard";
+import { PrintReport } from "../components/PrintReport";
+import { useAuth } from "../auth";
 import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
 import {
   aisleName,
+  liveCages,
+  reportDate,
   nowBrisbaneHM,
   shiftLocal,
   todayBrisbane,
@@ -39,6 +43,7 @@ const findAisle = (aisles: FeedAisle[], n: number) =>
  * by each cage's planned time. The manager first sees the floor plan; only
  * aisles with cages can be opened. */
 export default function Today() {
+  const { user } = useAuth();
   const [date, setDate] = useState(todayBrisbane);
   const [data, setData] = useState<FeedSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,14 +115,49 @@ export default function Today() {
     );
   }
 
+  // MNG report (print only): % fed per cage and aisle, and the day, for the
+  // selected date.
+  const report =
+    user?.role === "mng" ? (
+      <PrintReport title="MNG Report" date={reportDate(data.date)}>
+        {data.aisles
+          .filter((a) => a.cages.length > 0)
+          .map((a) => (
+            <div key={a.aisle_id} className="print-aisle">
+              <h2>
+                {aisleName(a.label)} · {a.percent_fed}% fed
+              </h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cage</th>
+                    <th className="num">Fed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.cages.map((c) => (
+                    <tr key={c.cage_id}>
+                      <td>{c.code}</td>
+                      <td className="num">{c.percent}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        <p className="print-total">Day: {data.percent_fed}% fed</p>
+      </PrintReport>
+    ) : null;
+
   const open = selected === null ? undefined : findAisle(data.aisles, selected);
 
   // --- one aisle: its cages with the existing % fed controls ---
-  if (selected !== null && open && open.cages.length > 0) {
+  if (selected !== null && open && liveCages(open.cages).length > 0) {
     const ages = unfinishedIndex(unfinished);
     const runningNow = runningIds(unfinished);
     return (
       <div className="card">
+        {report}
         <div className="btn-row">
           <button className="btn ghost small" onClick={() => setSelected(null)}>
             ← Back
@@ -134,7 +174,7 @@ export default function Today() {
             </span>
           </h3>
           <div className="cage-grid">
-            {open.cages.map((cage) => (
+            {liveCages(open.cages).map((cage) => (
               <FeedRow
                 key={cage.cage_id}
                 cage={cage}
@@ -154,7 +194,7 @@ export default function Today() {
   // --- the floor plan: only aisles with cages can be opened ---
   const lane = (n: number) => {
     const aisle = findAisle(data.aisles, n);
-    const cages = aisle?.cages.length ?? 0;
+    const cages = aisle ? liveCages(aisle.cages).length : 0;
     return (
       <button
         key={`lane-${n}`}
@@ -184,6 +224,7 @@ export default function Today() {
 
   return (
     <div className="card">
+      {report}
       {dateInput}
       {error && <Banner kind="error">{error}</Banner>}
       <div className="floor-wrap" style={{ marginTop: "1rem" }}>

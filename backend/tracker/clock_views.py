@@ -59,6 +59,7 @@ class ClockSummaryView(APIView):
     def get(self, request):
         store = services.get_shared_store()
         aisles = Aisle.objects.filter(store=store).prefetch_related("cages")
+        finished_ids = services.finished_cage_ids(store)
         open_by_cage, last_by_cage = {}, {}
         # Ascending order, so later rows overwrite earlier ones.
         for s in CageSession.objects.filter(
@@ -79,6 +80,7 @@ class ClockSummaryView(APIView):
                         "code": c.code,
                         "open_session": o and {"id": o.id, "start_at": o.start_at},
                         "last_session": _session_json(last_by_cage.get(c.id)),
+                        "finished": c.id in finished_ids,
                     }
                 )
             out.append({"aisle_id": aisle.id, "label": aisle.label, "cages": cages})

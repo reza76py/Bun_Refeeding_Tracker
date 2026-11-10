@@ -16,6 +16,7 @@ from tracker.models import (
     Store,
     WorkDay,
 )
+from tracker import services
 from tracker.roles import role_and_pages
 
 User = get_user_model()
@@ -91,8 +92,18 @@ class AisleCageSerializer(serializers.ModelSerializer):
             "seconds_per_line",
             "minutes",
             "estimated_seconds",
+            "finished",
         ]
         read_only_fields = ["aisle", "estimated_seconds"]
+
+    # Ended on Clock or 100% on Today (hidden on the pages; data is kept).
+    finished = serializers.SerializerMethodField()
+
+    def get_finished(self, cage) -> bool:
+        ids = self.context.get("finished_ids")
+        if ids is not None:
+            return cage.id in ids
+        return services.is_cage_finished(cage)
 
     def validate_code(self, value):
         value = value.strip().upper()

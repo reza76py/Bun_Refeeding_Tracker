@@ -81,3 +81,19 @@ export function durDays(seconds: number | null | undefined): string {
   if (h) return `${h}h ${m}m`;
   return `${m}m`;
 }
+
+/** Cages still to do: finished ones (ended / 100%) are hidden on the pages. */
+export const liveCages = <T extends { finished: boolean }>(cages: T[]): T[] =>
+  cages.filter((c) => !c.finished);
+
+/** "YYYY-MM-DD" as a report date, e.g. "Tue 10 Nov 2026". */
+export function reportDate(ymd: string): string {
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${ymd}T00:00:00Z`));
+}
+

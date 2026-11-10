@@ -10,7 +10,15 @@ import type { Aisle, AisleCage, RunningCage } from "../api/types";
 import { CageCard } from "../components/CageCard";
 import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
-import { aisleName, dur, toBrisbaneLocal } from "../lib/format";
+import {
+  aisleName,
+  dur,
+  liveCages,
+  reportDate,
+  toBrisbaneLocal,
+  todayBrisbane,
+} from "../lib/format";
+import { PrintReport } from "../components/PrintReport";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
 import {
   ageHue,
@@ -36,6 +44,7 @@ const findAisle = (aisles: Aisle[], n: number) =>
 
 /** Plan: pick an aisle on the floor plan, then add / edit its cages. */
 export default function Plan() {
+  const { user } = useAuth();
   const [aisles, setAisles] = useState<Aisle[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,12 +115,51 @@ export default function Plan() {
 
   if (loading) return <Loading what="Loading" />;
 
+  // GI report (print only): the plan's aisles, cages, planned minutes, totals.
+  const report =
+    user?.role === "gi" ? (
+      <PrintReport title="GI Report" date={reportDate(todayBrisbane())}>
+        {aisles
+          .filter((a) => a.cages.length > 0)
+          .map((a) => (
+            <div key={a.id} className="print-aisle">
+              <h2>
+                {aisleName(a.label)} · {dur(sumTime(a.cages))}
+              </h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cage</th>
+                    <th className="num">Planned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.cages.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        {c.code}
+                        {c.finished ? " (done)" : ""}
+                      </td>
+                      <td className="num">{dur(c.estimated_seconds)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        <p className="print-total">
+          Total: {dur(sumTime(aisles.flatMap((a) => a.cages)))}
+        </p>
+      </PrintReport>
+    ) : null;
+
   const open = selected === null ? undefined : findAisle(aisles, selected);
 
   // --- one aisle's cage editor ---
   if (selected !== null && open) {
     return (
       <div className="card">
+        {report}
         <button
           className="btn ghost small"
           onClick={() => setSelected(null)}
@@ -123,7 +171,7 @@ export default function Plan() {
           key={open.id}
           tone={ALL_LANES.indexOf(selected) % 4}
           aisle={open}
-          autoOpen={open.cages.length === 0}
+          autoOpen={liveCages(open.cages).length === 0}
           onChanged={load}
           unfinished={unfinishedIndex(unfinished)}
           running={runningIds(unfinished)}
@@ -137,7 +185,7 @@ export default function Plan() {
   const total = sumTime(aisles.flatMap((a) => a.cages));
   const lane = (n: number) => {
     const aisle = findAisle(aisles, n);
-    const cages = aisle?.cages.length ?? 0;
+    const cages = aisle ? liveCages(aisle.cages).length : 0;
     let tint: ReturnType<typeof laneTint> | undefined;
     if (aisle && cages) {
       // The oldest unfinished cage in this aisle drives its colour;
@@ -176,6 +224,7 @@ export default function Plan() {
 
   return (
     <div className="card">
+      {report}
       {error && <Banner kind="error">{error}</Banner>}
       <div className="floor-wrap">
         <div className="floor" role="group" aria-label="Store floor plan">
@@ -393,9 +442,9 @@ function AisleBlock({
 
       {error && <Banner kind="error">{error}</Banner>}
 
-      {aisle.cages.length > 0 && (
+      {liveCages(aisle.cages).length > 0 && (
         <div className="cage-grid">
-          {aisle.cages.map((cage) => (
+          {liveCages(aisle.cages).map((cage) => (
             <CageTile
               key={cage.id}
               cage={cage}

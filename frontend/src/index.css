@@ -929,3 +929,72 @@ input.feed-check {
   }
 }
 
+/* --- Print report (GI / MNG / MBR): A4, black on white, report only ------- */
+.print-report {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  #root {
+    display: none !important;
+  }
+  .print-report {
+    display: block;
+    color: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+  }
+  .print-report h1 {
+    font-size: 18pt;
+    margin: 0;
+  }
+  .print-report .print-date {
+    margin: 2pt 0 12pt;
+    color: #333;
+  }
+  .print-report h2 {
+    font-size: 12.5pt;
+    margin: 12pt 0 4pt;
+  }
+  .print-report .print-aisle {
+    break-inside: avoid;
+  }
+  .print-report table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .print-report th,
+  .print-report td {
+    border-bottom: 1px solid #999;
+    padding: 3pt 4pt;
+    text-align: left;
+    color: #000;
+    background: none;
+    white-space: normal;
+    height: auto;
+  }
+  .print-report th {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .print-report .num {
+    text-align: right;
+  }
+  .print-report .print-total {
+    margin-top: 12pt;
+    font-weight: 700;
+  }
+}
+

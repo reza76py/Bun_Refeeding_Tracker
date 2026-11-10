@@ -2,9 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { api, clockExportUrl } from "../api/client";
 import type { ClockAisle, ClockSummary, RunningCage } from "../api/types";
 import { CageCard } from "../components/CageCard";
+import { PrintReport } from "../components/PrintReport";
+import { useAuth } from "../auth";
 import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
-import { aisleName, durDays, stamp } from "../lib/format";
+import {
+  aisleName,
+  durDays,
+  liveCages,
+  reportDate,
+  stamp,
+  todayBrisbane,
+} from "../lib/format";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
 import {
   aisleLaneTint,
@@ -28,6 +37,7 @@ const findAisle = (aisles: ClockAisle[], n: number) =>
  * can run over several days and every one is kept as history. The member
  * first sees the floor plan; only aisles GI set up with cages can be opened. */
 export default function Clock() {
+  const { user } = useAuth();
   const [data, setData] = useState<ClockSummary | null>(null);
   // The aisle number open (null = show the floor plan).
   const [selected, setSelected] = useState<number | null>(null);
@@ -78,13 +88,56 @@ export default function Clock() {
     );
   }
 
+  // MBR report (print only): each cage's start / end and duration.
+  const report =
+    user?.role === "mbr" ? (
+      <PrintReport title="MBR Report" date={reportDate(todayBrisbane())}>
+        {data.aisles
+          .filter((a) => a.cages.length > 0)
+          .map((a) => (
+            <div key={a.aisle_id} className="print-aisle">
+              <h2>{aisleName(a.label)}</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cage</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th className="num">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.cages.map((c) => {
+                    const run = c.open_session;
+                    const last = c.last_session;
+                    return (
+                      <tr key={c.cage_id}>
+                        <td>{c.code}</td>
+                        <td>
+                          {run ? stamp(run.start_at) : last ? stamp(last.start_at) : "—"}
+                        </td>
+                        <td>{run ? "running" : last ? stamp(last.end_at) : "—"}</td>
+                        <td className="num">
+                          {!run && last ? durDays(last.duration_seconds) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ))}
+      </PrintReport>
+    ) : null;
+
   const open = selected === null ? undefined : findAisle(data.aisles, selected);
 
   // --- one aisle: its cages with Start / End / Cancel ---
-  if (selected !== null && open && open.cages.length > 0) {
+  if (selected !== null && open && liveCages(open.cages).length > 0) {
     const ages = unfinishedIndex(unfinished);
     return (
       <div className="card">
+        {report}
         <button className="btn ghost small" onClick={() => setSelected(null)}>
           ← Back
         </button>
@@ -92,7 +145,7 @@ export default function Clock() {
         <div className={`aisle-block aisle-tone-${ALL_LANES.indexOf(selected) % 4}`}>
           <h3 style={{ margin: 0 }}>{aisleName(open.label)}</h3>
           <div className="cage-grid">
-            {open.cages.map((c) => {
+            {liveCages(open.cages).map((c) => {
               const off = busy === c.cage_id;
               const last = c.last_session;
               return (
@@ -153,7 +206,7 @@ export default function Clock() {
   // --- the floor plan: only aisles with cages can be opened ---
   const lane = (n: number) => {
     const aisle = findAisle(data.aisles, n);
-    const cages = aisle?.cages.length ?? 0;
+    const cages = aisle ? liveCages(aisle.cages).length : 0;
     return (
       <button
         key={`lane-${n}`}
@@ -182,6 +235,7 @@ export default function Clock() {
 
   return (
     <div className="card">
+      {report}
       {error && <Banner kind="error">{error}</Banner>}
       <div className="floor-wrap">
         <div className="floor" role="group" aria-label="Store floor plan">

@@ -57,6 +57,8 @@ export interface AisleCage {
   seconds_per_line: number | null;
   minutes: number | null; // quick entry; when set, it is the cage's time
   estimated_seconds: number | null; // lines x seconds_per_line
+  /** Ended on Clock or 100% on Today: hidden on the pages (data is kept). */
+  finished: boolean;
 }
 
 export type AisleDetailMode = "cages" | "bays";
@@ -183,6 +185,8 @@ export interface FeedCage {
   percent: number;
   /** Clock start/end for this cage on the date; null = none recorded. */
   session: { start_at: string; end_at: string | null } | null;
+  /** Ended on Clock or 100% on Today: hidden on the pages (data is kept). */
+  finished: boolean;
 }
 
 export interface FeedAisle {
@@ -211,6 +215,8 @@ export interface ClockCage {
   code: string;
   open_session: { id: number; start_at: string } | null;
   last_session: ClockSession | null;
+  /** Ended on Clock or 100% on Today: hidden on the pages (data is kept). */
+  finished: boolean;
 }
 
 export interface ClockAisle {
