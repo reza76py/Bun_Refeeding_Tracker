@@ -1,6 +1,6 @@
 from django.urls import path, re_path
 
-from tracker import clock_views, views
+from tracker import admin_views, clock_views, graph_views, views
 
 urlpatterns = [
     # Auth
@@ -29,6 +29,11 @@ urlpatterns = [
     re_path(r"^clock/cancel/?$", clock_views.ClockCancelView.as_view()),
     re_path(r"^clock/manual/?$", clock_views.ClockManualView.as_view()),
     path("clock/export.csv", clock_views.ClockExportView.as_view()),
+    # Graph: running cages, readable by every role
+    path("graph/running/", graph_views.GraphRunningView.as_view()),
+    # Settings (ADMIN only): backdate a cage to preview the age colours
+    path("admin/cages/", admin_views.AdminCageListView.as_view()),
+    path("admin/cages/<int:pk>/created/", admin_views.AdminCageCreatedView.as_view()),
     # Assumptions
     path("assumptions/", views.AssumptionListCreateView.as_view()),
     path("assumptions/active/", views.ActiveAssumptionView.as_view()),

@@ -34,6 +34,21 @@ export function nowBrisbaneHM(): string {
   }).format(new Date());
 }
 
+/** An ISO timestamp as Brisbane local "YYYY-MM-DDTHH:MM" (datetime-local). */
+export function toBrisbaneLocal(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Brisbane",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
 /** Shift a local "YYYY-MM-DDTHH:MM" by some minutes (no time-zone maths). */
 export function shiftLocal(local: string, minutes: number): string {
   const ms = Date.parse(`${local}:00Z`) + minutes * 60_000;

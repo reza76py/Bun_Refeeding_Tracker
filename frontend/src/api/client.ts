@@ -21,6 +21,8 @@ import type {
   FeedSummary,
   ClockSession,
   ClockSummary,
+  RunningCage,
+  AdminCage,
 } from "./types";
 
 const BASE = "/api";
@@ -41,6 +43,9 @@ function getCookie(name: string): string | null {
   );
   return match ? decodeURIComponent(match[2]) : null;
 }
+
+/** Fired when a request is refused, so the app re-reads who is signed in. */
+export const SESSION_CHECK_EVENT = "session-check";
 
 async function request<T>(
   method: string,
@@ -74,6 +79,11 @@ async function request<T>(
     }
   }
   if (!resp.ok) {
+    // 401/403 can mean the browser's session now belongs to another login
+    // (e.g. a different role signed in in another tab). Let the app re-check.
+    if ((resp.status === 401 || resp.status === 403) && !path.startsWith("/auth/")) {
+      window.dispatchEvent(new Event(SESSION_CHECK_EVENT));
+    }
     const detail =
       data && typeof data === "object" && "detail" in data
         ? (data as { detail: unknown }).detail
@@ -183,6 +193,15 @@ export const api = {
       start_at: startAt,
       end_at: endAt,
     }),
+  // Settings (ADMIN only): list cages / change a cage's creation time.
+  adminCages: () => request<AdminCage[]>("GET", "/admin/cages/"),
+  /** createdAt: Brisbane local "YYYY-MM-DDTHH:MM" (from a datetime-local). */
+  adminSetCreated: (cageId: number, createdAt: string) =>
+    request<AdminCage>("PATCH", `/admin/cages/${cageId}/created/`, {
+      created_at: createdAt,
+    }),
+  // Graph: every unfinished cage, timed from creation (any role).
+  graphRunning: () => request<RunningCage[]>("GET", "/graph/running/"),
   clockCancel: (cageId: number) =>
     request<{ cancelled: boolean }>("POST", "/clock/cancel", { cage_id: cageId }),
 

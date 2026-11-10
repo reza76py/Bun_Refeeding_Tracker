@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, ensureCsrf } from "./api/client";
+import { api, ensureCsrf, SESSION_CHECK_EVENT } from "./api/client";
 import type { User } from "./api/types";
 
 interface AuthState {
@@ -33,6 +33,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     })();
+  }, []);
+
+  // One browser holds one session: if another login (e.g. another role in
+  // another tab) replaced it, follow the server so nav + pages match it.
+  useEffect(() => {
+    const recheck = async () => {
+      try {
+        const me = await api.me();
+        setUser((cur) =>
+          cur &&
+          cur.id === me.id &&
+          cur.role === me.role &&
+          cur.pages.join() === me.pages.join()
+            ? cur
+            : me
+        );
+      } catch {
+        setUser(null); // signed out elsewhere -> show the sign-in screen
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") recheck();
+    };
+    window.addEventListener(SESSION_CHECK_EVENT, recheck);
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(SESSION_CHECK_EVENT, recheck);
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {

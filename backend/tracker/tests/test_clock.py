@@ -104,18 +104,15 @@ class ClockTests(AuthMixin, APITestCase):
         self.assertEqual(b1["end_at"], "")
         self.assertEqual(b1["duration_seconds"], "")
 
-    def test_other_user_cannot_touch_cage(self):
+    def test_other_user_shares_clock(self):
         self._post("start", self.c1)
-        other = self.make_user("other-clock")
-        self.client.force_authenticate(other)
-        for action in ("start", "end", "cancel"):
-            self.assertEqual(self._post(action, self.c1).status_code, 404)
-        self.assertEqual(self.client.get("/api/clock/summary/").json()["aisles"], [])
+        self.client.force_authenticate(self.make_user("other-clock"))
+        # Same workspace: sees the running session and can end it.
+        self.assertIsNotNone(self._cages()["A1"]["open_session"])
+        self.assertEqual(self._post("end", self.c1).status_code, 200)
         rows = list(csv.reader(io.StringIO(
             self.client.get("/api/clock/export.csv").content.decode())))
-        self.assertEqual(len(rows), 1)  # header only
-        self.client.force_authenticate(self.user)
-        self.assertIsNotNone(self._cages()["A1"]["open_session"])
+        self.assertEqual(len(rows), 2)  # header + the shared session
 
 
 class ClockEndMarksTodayFedTests(AuthMixin, APITestCase):
@@ -189,16 +186,10 @@ class ClockEndMarksTodayFedTests(AuthMixin, APITestCase):
         self.assertEqual(self._post("end", self.c1).status_code, 400)
         self.assertFalse(CageFeed.objects.exists())
 
-    def test_other_user_unaffected(self):
-        from tracker.models import CageFeed
-
-        other = self.make_user("bystander")
-        self.client.force_authenticate(other)
-        self.assertEqual(self._post("end", self.c1).status_code, 404)
-        self.client.force_authenticate(self.user)
+    def test_end_shows_on_everyones_today(self):
         self._post("start", self.c1)
         day = self._end_date(self._post("end", self.c1))
-        self.client.force_authenticate(other)
+        self.client.force_authenticate(self.make_user("bystander"))
         s = self.client.get(f"/api/feed/summary/?date={day}").json()
-        self.assertEqual((s["aisles"], s["percent_fed"]), ([], 0))
-        self.assertEqual(CageFeed.objects.filter(cage__aisle__store__owner=other).count(), 0)
+        self.assertEqual(s["aisles"][0]["cages"][0]["percent"], 100)
+

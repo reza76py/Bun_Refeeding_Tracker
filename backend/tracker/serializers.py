@@ -16,14 +16,24 @@ from tracker.models import (
     Store,
     WorkDay,
 )
+from tracker.roles import role_and_pages
 
 User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    pages = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name"]
+        fields = ["id", "username", "first_name", "last_name", "role", "pages"]
+
+    def get_role(self, user):
+        return role_and_pages(user)[0]
+
+    def get_pages(self, user):
+        return role_and_pages(user)[1]
 
 
 class StoreSerializer(serializers.ModelSerializer):

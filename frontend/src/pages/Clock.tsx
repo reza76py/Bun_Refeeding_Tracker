@@ -1,16 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, clockExportUrl } from "../api/client";
-import type { ClockSummary } from "../api/types";
+import type { ClockAisle, ClockSummary, RunningCage } from "../api/types";
 import { Banner, Loading } from "../components/ui";
 import { aisleName, durDays, stamp } from "../lib/format";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
+import {
+  aisleLaneTint,
+  cageRowStyle,
+  unfinishedIndex,
+} from "../lib/ageColour";
+
+/** Same store floor plan as the Plan page (same lanes and labels). */
+const TOP_ROW = [7, 6, 5, 4, 3, 2];
+const BOTTOM_ROW = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+const ALL_LANES = [...TOP_ROW, ...BOTTOM_ROW];
+
+/** The aisle a lane stands for: "Aisle 5", or a bare "5". */
+const findAisle = (aisles: ClockAisle[], n: number) =>
+  aisles.find(
+    (a) => aisleName(a.label).trim().toLowerCase() === `aisle ${n}`
+  );
 
 /** Per cage: Start when refeeding it begins, End when it finishes. Sessions
- * can run over several days and every one is kept as history. */
+ * can run over several days and every one is kept as history. The member
+ * first sees the floor plan; only aisles GI set up with cages can be opened. */
 export default function Clock() {
   const [data, setData] = useState<ClockSummary | null>(null);
+  // The aisle number open (null = show the floor plan).
+  const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Unfinished cages (for the row age colours) and the clock they age by.
+  const [unfinished, setUnfinished] = useState<RunningCage[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     try {
@@ -19,10 +42,16 @@ export default function Clock() {
     } catch {
       setError("Could not load.");
     }
+    // Colours are a hint only: a failure here must not break the page.
+    api.graphRunning().then(setUnfinished, () => {});
+    setNow(Date.now());
   }, []);
 
   useEffect(() => {
     load();
+    // Keep row colours current as cages age.
+    const t = window.setInterval(load, 60_000);
+    return () => window.clearInterval(t);
   }, [load]);
   useRefetchOnFocus(load);
 
@@ -46,18 +75,28 @@ export default function Clock() {
     );
   }
 
-  return (
-    <div className="card">
-      {error && <Banner kind="error">{error}</Banner>}
+  const open = selected === null ? undefined : findAisle(data.aisles, selected);
 
-      {data.aisles.map((aisle, i) => (
-        <div key={aisle.aisle_id} style={{ marginTop: i ? "1.5rem" : 0 }}>
-          <h3 style={{ margin: 0 }}>{aisleName(aisle.label)}</h3>
-          {aisle.cages.map((c) => {
+  // --- one aisle: its cages with Start / End / Cancel ---
+  if (selected !== null && open && open.cages.length > 0) {
+    const ages = unfinishedIndex(unfinished);
+    return (
+      <div className="card">
+        <button className="btn ghost small" onClick={() => setSelected(null)}>
+          ← Back
+        </button>
+        {error && <Banner kind="error">{error}</Banner>}
+        <div className={`aisle-block aisle-tone-${ALL_LANES.indexOf(selected) % 4}`}>
+          <h3 style={{ margin: 0 }}>{aisleName(open.label)}</h3>
+          {open.cages.map((c) => {
             const off = busy === c.cage_id;
             const last = c.last_session;
             return (
-              <div key={c.cage_id} className="clock-row">
+              <div
+                key={c.cage_id}
+                className="clock-row age-card"
+                style={cageRowStyle(c.cage_id, ages, now)}
+              >
                 <strong>{c.code}</strong>
                 <div className="btn-row">
                   {c.open_session ? (
@@ -100,16 +139,48 @@ export default function Clock() {
             );
           })}
         </div>
-      ))}
+      </div>
+    );
+  }
 
-      {data.aisles.length > 0 && (
-        <>
-          <div className="divider" />
-          <a className="small muted" href={clockExportUrl} download>
-            Export CSV
-          </a>
-        </>
-      )}
+  // --- the floor plan: only aisles with cages can be opened ---
+  const lane = (n: number) => {
+    const aisle = findAisle(data.aisles, n);
+    const cages = aisle?.cages.length ?? 0;
+    return (
+      <button
+        key={`lane-${n}`}
+        type="button"
+        className={cages ? "lane has-cages" : "lane lane-off"}
+        style={aisle && cages ? aisleLaneTint(aisle.label, unfinished, now) : undefined}
+        onClick={() => cages && setSelected(n)}
+        disabled={!cages}
+        aria-label={cages ? `Aisle ${n}, ${cages} cage(s)` : `Aisle ${n} (no cages)`}
+      >
+        <span className="lane-label">Aisle {n}</span>
+        {cages > 0 && <span className="lane-count">{cages}</span>}
+      </button>
+    );
+  };
+  const row = (lanes: number[]) =>
+    lanes.flatMap((n) => [
+      lane(n),
+      <div key={`shelf-${n}`} className="shelf" aria-hidden="true" />,
+    ]);
+
+  return (
+    <div className="card">
+      {error && <Banner kind="error">{error}</Banner>}
+      <div className="floor-wrap">
+        <div className="floor" role="group" aria-label="Store floor plan">
+          <div className="floor-row floor-top">{row(TOP_ROW)}</div>
+          <div className="floor-row">{row(BOTTOM_ROW)}</div>
+        </div>
+      </div>
+      <div className="divider" />
+      <a className="small muted" href={clockExportUrl} download>
+        Export CSV
+      </a>
     </div>
   );
 }

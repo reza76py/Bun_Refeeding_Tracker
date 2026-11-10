@@ -2,11 +2,17 @@
 // stay in step (brief: "Use a shared TypeScript API type definition ... to
 // prevent drift").
 
+export type Role = "gi" | "mng" | "mbr" | "admin";
+export type Page = "plan" | "today" | "clock" | "settings";
+
 export interface User {
   id: number;
   username: string;
   first_name: string;
   last_name: string;
+  role: Role | null;
+  /** Pages this user may open, in nav order. */
+  pages: Page[];
 }
 
 export type Provenance = "assumed" | "user_estimate" | "measured";
@@ -215,4 +221,20 @@ export interface ClockAisle {
 
 export interface ClockSummary {
   aisles: ClockAisle[];
+}
+
+// --- Graph: unfinished cages (not ended on Clock, not 100% on Today) --------
+export interface RunningCage {
+  cage_id: number;
+  code: string;
+  aisle_label: string;
+  created_at: string; // ISO timestamp: when the cage was added on Plan
+}
+
+// --- Settings (ADMIN only): cage creation times ------------------------------
+export interface AdminCage {
+  cage_id: number;
+  code: string;
+  aisle_label: string;
+  created_at: string; // ISO timestamp
 }

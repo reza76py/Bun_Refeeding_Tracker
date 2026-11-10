@@ -141,7 +141,7 @@ class AisleListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return (
-            Aisle.objects.filter(store__owner=self.request.user)
+            Aisle.objects.filter(store=services.get_shared_store())
             .prefetch_related("bays", "cages")
             .select_related("store")
         )
@@ -149,11 +149,11 @@ class AisleListView(generics.ListCreateAPIView):
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         if self.request.method == "POST":
-            ctx["store"] = services.default_store(self.request.user)
+            ctx["store"] = services.get_shared_store()
         return ctx
 
     def perform_create(self, serializer):
-        store = services.default_store(self.request.user)
+        store = services.get_shared_store()
         _save_or_400(serializer, "This aisle already exists.", store=store)
 
     @transaction.atomic
@@ -161,7 +161,7 @@ class AisleListView(generics.ListCreateAPIView):
         """DELETE /api/aisles/ removes ALL of this user's aisles, with their
         cages and bays. Logged work-day cages keep their history (aisle set
         to null)."""
-        deleted = Aisle.objects.filter(store__owner=request.user)
+        deleted = Aisle.objects.filter(store=services.get_shared_store())
         count = deleted.count()
         deleted.delete()
         return Response({"deleted_aisles": count}, status=status.HTTP_200_OK)
@@ -175,7 +175,7 @@ class AisleDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return (
-            Aisle.objects.filter(store__owner=self.request.user)
+            Aisle.objects.filter(store=services.get_shared_store())
             .prefetch_related("bays", "cages")
             .select_related("store")
         )
@@ -191,7 +191,7 @@ class BayListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Bay.objects.filter(
-            aisle_id=self.kwargs["aisle_id"], aisle__store__owner=self.request.user
+            aisle_id=self.kwargs["aisle_id"], aisle__store=services.get_shared_store()
         )
 
     def get_serializer_class(self):
@@ -199,7 +199,7 @@ class BayListView(generics.ListCreateAPIView):
 
     def _aisle(self):
         return generics.get_object_or_404(
-            Aisle, id=self.kwargs["aisle_id"], store__owner=self.request.user
+            Aisle, id=self.kwargs["aisle_id"], store=services.get_shared_store()
         )
 
     def get_serializer_context(self):
@@ -219,7 +219,7 @@ class BayDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BaySerializer
 
     def get_queryset(self):
-        return Bay.objects.filter(aisle__store__owner=self.request.user)
+        return Bay.objects.filter(aisle__store=services.get_shared_store())
 
     def perform_update(self, serializer):
         _save_or_400(serializer, "This bay number already exists in the aisle.")
@@ -232,12 +232,12 @@ class AisleCageListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return AisleCage.objects.filter(
-            aisle_id=self.kwargs["aisle_id"], aisle__store__owner=self.request.user
+            aisle_id=self.kwargs["aisle_id"], aisle__store=services.get_shared_store()
         )
 
     def _aisle(self):
         return generics.get_object_or_404(
-            Aisle, id=self.kwargs["aisle_id"], store__owner=self.request.user
+            Aisle, id=self.kwargs["aisle_id"], store=services.get_shared_store()
         )
 
     def get_serializer_context(self):
@@ -257,7 +257,7 @@ class AisleCageDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AisleCageSerializer
 
     def get_queryset(self):
-        return AisleCage.objects.filter(aisle__store__owner=self.request.user)
+        return AisleCage.objects.filter(aisle__store=services.get_shared_store())
 
     def perform_update(self, serializer):
         _save_or_400(serializer, "This cage number already exists in the aisle.")
@@ -266,7 +266,7 @@ class AisleCageDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CatalogueSummaryView(APIView):
     def get(self, request):
         aisles = (
-            Aisle.objects.filter(store__owner=request.user)
+            Aisle.objects.filter(store=services.get_shared_store())
             .prefetch_related("bays", "cages")
             .order_by("label")
         )
@@ -307,7 +307,7 @@ class CatalogueSummaryView(APIView):
 
 class AssumptionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
-        return AssumptionSet.objects.filter(owner=self.request.user)
+        return AssumptionSet.objects.filter(owner=services.get_shared_store().owner)
 
     def get_serializer_class(self):
         return (
@@ -320,7 +320,7 @@ class AssumptionListCreateView(generics.ListCreateAPIView):
         serializer = AssumptionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         new_version = services.create_assumption_version(
-            request.user, **serializer.validated_data
+            services.get_shared_store().owner, **serializer.validated_data
         )
         return Response(
             AssumptionSetSerializer(new_version).data, status=status.HTTP_201_CREATED
@@ -329,7 +329,7 @@ class AssumptionListCreateView(generics.ListCreateAPIView):
 
 class ActiveAssumptionView(APIView):
     def get(self, request):
-        active = services.active_assumption_set(request.user)
+        active = services.active_assumption_set(services.get_shared_store().owner)
         return Response(AssumptionSetSerializer(active).data)
 
 
@@ -641,10 +641,11 @@ class FeedSummaryView(APIView):
         day = _parse_date(raw) if raw else timezone.localdate()
         if day is None:
             raise ValidationError({"date": "Use YYYY-MM-DD."})
-        aisles = Aisle.objects.filter(store__owner=request.user).prefetch_related("cages")
+        store = services.get_shared_store()
+        aisles = Aisle.objects.filter(store=store).prefetch_related("cages")
         saved = dict(
             CageFeed.objects.filter(
-                cage__aisle__store__owner=request.user, feed_date=day
+                cage__aisle__store=store, feed_date=day
             ).values_list("cage_id", "percent")
         )
         # Clock session per cage for this date: one that started on or before
@@ -652,7 +653,7 @@ class FeedSummaryView(APIView):
         session_by_cage = {}
         for sess in (
             CageSession.objects.filter(
-                cage__aisle__store__owner=request.user, start_at__date__lte=day
+                cage__aisle__store=store, start_at__date__lte=day
             )
             .filter(Q(end_at__isnull=True) | Q(end_at__date__gte=day))
             .order_by("start_at", "id")
@@ -706,7 +707,7 @@ class FeedSetView(APIView):
         if not 0 <= percent <= 100:
             raise ValidationError({"percent": "Must be between 0 and 100."})
         cage = generics.get_object_or_404(
-            AisleCage, id=data.get("cage_id"), aisle__store__owner=request.user
+            AisleCage, id=data.get("cage_id"), aisle__store=services.get_shared_store()
         )
         with transaction.atomic():  # percent + Clock sync succeed or fail together
             try:

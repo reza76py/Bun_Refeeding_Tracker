@@ -18,11 +18,12 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from tracker import services
 from tracker.models import Aisle, AisleCage, CageFeed, CageSession
 
 
 def _owned_cage(request, lock=False):
-    qs = AisleCage.objects.filter(aisle__store__owner=request.user)
+    qs = AisleCage.objects.filter(aisle__store=services.get_shared_store())
     if lock:
         qs = qs.select_for_update()
     return generics.get_object_or_404(qs, id=request.data.get("cage_id"))
@@ -56,11 +57,12 @@ class ClockSummaryView(APIView):
     session and last finished session."""
 
     def get(self, request):
-        aisles = Aisle.objects.filter(store__owner=request.user).prefetch_related("cages")
+        store = services.get_shared_store()
+        aisles = Aisle.objects.filter(store=store).prefetch_related("cages")
         open_by_cage, last_by_cage = {}, {}
         # Ascending order, so later rows overwrite earlier ones.
         for s in CageSession.objects.filter(
-            cage__aisle__store__owner=request.user
+            cage__aisle__store=store
         ).order_by("start_at", "id"):
             if s.end_at is None:
                 open_by_cage[s.cage_id] = s
@@ -170,7 +172,7 @@ class ClockExportView(APIView):
 
     def get(self, request):
         sessions = (
-            CageSession.objects.filter(cage__aisle__store__owner=request.user)
+            CageSession.objects.filter(cage__aisle__store=services.get_shared_store())
             .select_related("cage__aisle")
             .order_by("start_at", "id")
         )

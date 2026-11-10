@@ -1,22 +1,52 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { api, ApiError } from "../api/client";
-import type { Aisle, AisleCage } from "../api/types";
+import type { Aisle, AisleCage, RunningCage } from "../api/types";
 import { Banner, Loading } from "../components/ui";
 import { aisleName, dur } from "../lib/format";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
+import {
+  ageHue,
+  cageRowVars,
+  laneTint,
+  unfinishedIndex,
+} from "../lib/ageColour";
 
-/** Aisles and their cages (cage number + time in minutes). */
+/** Store floor plan: shelves are static blocks, the lanes between them are
+ * the aisles. Top row left -> right: 7..2; bottom row: 8..16. */
+const TOP_ROW = [7, 6, 5, 4, 3, 2];
+const BOTTOM_ROW = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+const ALL_LANES = [...TOP_ROW, ...BOTTOM_ROW];
+
+/** The saved aisle a lane stands for: "Aisle 5", or a bare "5". */
+const findAisle = (aisles: Aisle[], n: number) =>
+  aisles.find(
+    (a) => aisleName(a.label).trim().toLowerCase() === `aisle ${n}`
+  );
+
+
+/** Plan: pick an aisle on the floor plan, then add / edit its cages. */
 export default function Plan() {
   const [aisles, setAisles] = useState<Aisle[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
-  const [justAdded, setJustAdded] = useState<number | null>(null);
-  const labelRef = useRef<HTMLInputElement>(null);
+  // The aisle number open in the cage editor (null = show the map).
+  const [selected, setSelected] = useState<number | null>(null);
+  // Unfinished cages (for the lane age colours) and the clock they age by.
+  const [unfinished, setUnfinished] = useState<RunningCage[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     setAisles(await api.aisles());
+    // Colours are a hint only: a failure here must not break the plan.
+    api.graphRunning().then(setUnfinished, () => {});
+    setNow(Date.now());
   }, []);
 
   useEffect(() => {
@@ -25,20 +55,26 @@ export default function Plan() {
       .finally(() => setLoading(false));
   }, [load]);
   useRefetchOnFocus(load);
+  // Keep lane colours current as cages age.
+  useEffect(() => {
+    const t = window.setInterval(() => load().catch(() => {}), 60_000);
+    return () => window.clearInterval(t);
+  }, [load]);
 
-  async function addAisle() {
-    const trimmed = label.trim();
-    if (!trimmed) return;
-    setBusy(true);
+  /** Open a lane: create "Aisle N" first if it doesn't exist yet. */
+  async function openLane(n: number) {
     setError(null);
+    if (findAisle(aisles, n)) {
+      setSelected(n);
+      return;
+    }
+    setBusy(true);
     try {
-      const created = await api.createAisle(trimmed, "cages");
-      setLabel("");
+      await api.createAisle(`Aisle ${n}`, "cages");
       await load();
-      setJustAdded(created.id);
+      setSelected(n);
     } catch (e) {
       setError(errText(e));
-      labelRef.current?.focus();
     } finally {
       setBusy(false);
     }
@@ -55,7 +91,7 @@ export default function Plan() {
     setError(null);
     try {
       await api.deleteAllAisles();
-      setJustAdded(null);
+      setSelected(null);
       await load();
     } catch (e) {
       setError(errText(e));
@@ -66,44 +102,77 @@ export default function Plan() {
 
   if (loading) return <Loading what="Loading" />;
 
+  const open = selected === null ? undefined : findAisle(aisles, selected);
+
+  // --- one aisle's cage editor ---
+  if (selected !== null && open) {
+    return (
+      <div className="card">
+        <button
+          className="btn ghost small"
+          onClick={() => setSelected(null)}
+        >
+          ← Back
+        </button>
+        {error && <Banner kind="error">{error}</Banner>}
+        <AisleBlock
+          key={open.id}
+          tone={ALL_LANES.indexOf(selected) % 4}
+          aisle={open}
+          autoOpen={open.cages.length === 0}
+          onChanged={load}
+          unfinished={unfinishedIndex(unfinished)}
+          now={now}
+        />
+      </div>
+    );
+  }
+
+  // --- the floor-plan map ---
   const total = sumTime(aisles.flatMap((a) => a.cages));
+  const lane = (n: number) => {
+    const aisle = findAisle(aisles, n);
+    const cages = aisle?.cages.length ?? 0;
+    let tint: ReturnType<typeof laneTint> | undefined;
+    if (aisle && cages) {
+      // The oldest unfinished cage in this aisle drives its colour;
+      // all finished -> green.
+      const name = aisleName(aisle.label).trim().toLowerCase();
+      const oldest = unfinished
+        .filter((u) => aisleName(u.aisle_label).trim().toLowerCase() === name)
+        .reduce((min, u) => Math.min(min, Date.parse(u.created_at)), Infinity);
+      tint = laneTint(oldest === Infinity ? 120 : ageHue((now - oldest) / 1000));
+    }
+    return (
+      <button
+        key={`lane-${n}`}
+        type="button"
+        className={cages ? "lane has-cages" : "lane"}
+        style={tint}
+        onClick={() => openLane(n)}
+        disabled={busy}
+        aria-label={`Aisle ${n}${cages ? `, ${cages} cage(s)` : ""}`}
+      >
+        <span className="lane-label">Aisle {n}</span>
+        {cages > 0 && <span className="lane-count">{cages}</span>}
+      </button>
+    );
+  };
+  const row = (lanes: number[]) =>
+    lanes.flatMap((n) => [
+      lane(n),
+      <div key={`shelf-${n}`} className="shelf" aria-hidden="true" />,
+    ]);
 
   return (
     <div className="card">
-      <form
-        className="btn-row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          addAisle();
-        }}
-      >
-        <input
-          ref={labelRef}
-          aria-label="Aisle number"
-          placeholder="Input aisle number"
-          maxLength={40}
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          style={{ flex: 1, minWidth: 0 }}
-        />
-        <button
-          className="btn primary"
-          type="submit"
-          disabled={busy || !label.trim()}
-        >
-          {busy ? "Saving…" : "Add aisle"}
-        </button>
-      </form>
       {error && <Banner kind="error">{error}</Banner>}
-
-      {aisles.map((aisle) => (
-        <AisleBlock
-          key={aisle.id}
-          aisle={aisle}
-          autoOpen={justAdded === aisle.id}
-          onChanged={load}
-        />
-      ))}
+      <div className="floor-wrap">
+        <div className="floor" role="group" aria-label="Store floor plan">
+          <div className="floor-row floor-top">{row(TOP_ROW)}</div>
+          <div className="floor-row">{row(BOTTOM_ROW)}</div>
+        </div>
+      </div>
 
       {aisles.length > 0 && (
         <>
@@ -143,13 +212,20 @@ function sumTime(cages: AisleCage[]): number | null {
 const num = (v: string): number | "" => (v === "" ? "" : Number(v));
 
 function AisleBlock({
+  tone,
   aisle,
   autoOpen,
   onChanged,
+  unfinished,
+  now,
 }: {
+  tone: number;
   aisle: Aisle;
   autoOpen: boolean;
   onChanged: () => Promise<void>;
+  /** cage_id -> created_at (ms) of unfinished cages, for row colours. */
+  unfinished: Map<number, number>;
+  now: number;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [newLabel, setNewLabel] = useState(aisle.label);
@@ -240,7 +316,7 @@ function AisleBlock({
   const time = sumTime(aisle.cages);
 
   return (
-    <div style={{ marginTop: "1.5rem" }}>
+    <div className={`aisle-block aisle-tone-${tone}`}>
       <div className="row-between">
         {renaming ? (
           <form
@@ -306,7 +382,7 @@ function AisleBlock({
 
       {(aisle.cages.length > 0 || adding) && (
         <div className="table-wrap" style={{ marginTop: "0.5rem" }}>
-          <table className="cage-table">
+          <table className="cage-table age-rows">
             <colgroup>
               <col />
               <col className="col-time" />
@@ -324,6 +400,7 @@ function AisleBlock({
                 <CageRow
                   key={cage.id}
                   cage={cage}
+                  rowStyle={cageRowVars(cage.id, unfinished, now)}
                   disabled={busy}
                   onSave={(c, m) =>
                     run(async () => {
@@ -409,11 +486,14 @@ function AisleBlock({
 /** One cage: text with Edit / Delete; Edit shows cage number + minutes. */
 function CageRow({
   cage,
+  rowStyle,
   disabled,
   onSave,
   onDelete,
 }: {
   cage: AisleCage;
+  /** Age colour: grey when finished, green -> red while unfinished. */
+  rowStyle: CSSProperties;
   disabled: boolean;
   onSave: (code: string, minutes: number | null) => Promise<boolean>;
   onDelete: () => void;
@@ -433,7 +513,7 @@ function CageRow({
 
   if (!editing) {
     return (
-      <tr>
+      <tr className="age-row" style={rowStyle}>
         <td>
           <strong>{cage.code}</strong>
         </td>
@@ -484,7 +564,7 @@ function CageRow({
   };
 
   return (
-    <tr>
+    <tr className="age-row" style={rowStyle}>
       <td>
         <input
           className="inline-input"

@@ -63,6 +63,8 @@ class Store(models.Model):
     name = models.CharField(max_length=120, default="My Bunnings store")
     timezone = models.CharField(max_length=64, default="Australia/Brisbane")
     created_at = models.DateTimeField(auto_now_add=True)
+    # The single workspace all roles share (see services.get_shared_store).
+    is_shared = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["name"]
@@ -185,6 +187,8 @@ class AisleCage(models.Model):
         blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(1_440)],
     )
+    # When GI added the cage on Plan (the Graph times unfinished cages from here).
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["aisle_id", "code"]

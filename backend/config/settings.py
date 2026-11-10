@@ -130,6 +130,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+        # Each page's API only for the roles allowed that page (tracker/roles.py).
+        "tracker.roles.PageAccess",
     ],
     "DEFAULT_RENDERER_CLASSES": (
         ["rest_framework.renderers.JSONRenderer"]

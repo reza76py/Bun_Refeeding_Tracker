@@ -91,9 +91,9 @@ class SyncTests(AuthMixin, APITestCase):
         self.assertFalse(CageSession.objects.exists())
         self.assertEqual(CageFeed.objects.get(cage_id=self.c1).percent, 100)
 
-    def test_other_user_unaffected(self):
+    def test_other_user_shares_the_link(self):
         self._clock("start", self.c1, T0)
-        other = self.make_user("bystander2")
-        self.client.force_authenticate(other)
-        self.assertEqual(self._feed(self.c1, 100).status_code, 404)
-        self.assertIsNone(CageSession.objects.get(cage_id=self.c1).end_at)
+        self.client.force_authenticate(self.make_user("bystander2"))
+        self.assertEqual(self._feed(self.c1, 100).status_code, 200)
+        self.assertIsNotNone(CageSession.objects.get(cage_id=self.c1).end_at)
+

@@ -78,11 +78,16 @@ class ManualSessionTests(AuthMixin, APITestCase):
         # But not on a day before it started.
         self.assertIsNone(self._cage("2026-11-09")[0]["session"])
 
-    def test_other_user_cannot_create_on_foreign_cage(self):
+    def test_cage_outside_shared_workspace_is_404(self):
+        from tracker.models import Aisle, AisleCage, Store
+
         other = self.make_user("intruder-manual")
-        self.client.force_authenticate(other)
-        self.assertEqual(
-            self._manual("2026-11-10T06:00", "2026-11-10T06:30").status_code, 404
+        old = Store.objects.create(owner=other, name="Old store")  # not shared
+        cage = AisleCage.objects.create(
+            aisle=Aisle.objects.create(store=old, label="X"), code="X1"
         )
+        r = self._manual("2026-11-10T06:00", "2026-11-10T06:30", cage_id=cage.id)
+        self.assertEqual(r.status_code, 404)
         self.assertFalse(CageSession.objects.exists())
         self.assertFalse(CageFeed.objects.exists())
+

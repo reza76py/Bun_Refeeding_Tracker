@@ -520,3 +520,253 @@ input.feed-check {
   flex: 1 1 170px;
   min-width: 0;
 }
+
+/* --- Sign-in: four big demo-role buttons ----------------------------------- */
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+.btn.role-btn {
+  min-height: 72px;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* --- Aisle blocks: calm alternating tones (like Excel rows) --------------- */
+:root {
+  --tone-0: rgba(111, 191, 142, 0.07); /* sage */
+  --tone-1: rgba(127, 166, 223, 0.08); /* slate blue */
+  --tone-2: rgba(224, 186, 120, 0.07); /* sand */
+  --tone-3: rgba(176, 148, 214, 0.08); /* lavender */
+}
+.aisle-block {
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.aisle-tone-0 { background: var(--tone-0); }
+.aisle-tone-1 { background: var(--tone-1); }
+.aisle-tone-2 { background: var(--tone-2); }
+.aisle-tone-3 { background: var(--tone-3); }
+@media (max-width: 640px) {
+  .aisle-block {
+    padding: 0.6rem 0.5rem;
+  }
+}
+
+/* Page name at the bottom of each page (GI / MNG / MBR). */
+.page-name {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* --- Graph: running-time bars --------------------------------------------- */
+.graph-toggle {
+  justify-content: flex-end;
+  margin-bottom: 0.6rem;
+}
+.graph {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.graph-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 160px) 1fr 84px;
+  align-items: center;
+  gap: 0.75rem;
+}
+.graph-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-track {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.graph-bar {
+  height: 100%;
+  border-radius: 7px;
+  background: var(--accent);
+  opacity: 0.75;
+  transition: width 0.8s linear;
+}
+.graph-time {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .graph-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 0.25rem;
+  }
+  .graph-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* --- Plan: store floor plan (shelves static, lanes = clickable aisles) ---- */
+.floor-wrap {
+  overflow-x: auto; /* the map scrolls sideways on very narrow phones */
+}
+.floor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  min-width: 460px;
+  padding: 1rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.floor-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: 150px;
+}
+.floor-top {
+  width: 68%; /* the top row is shorter, as on the floor plan */
+}
+.shelf {
+  flex: 1 1 0;
+  min-width: 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.lane {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lane:hover,
+.lane:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  outline: none;
+}
+.lane:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.lane.has-cages {
+  color: var(--accent);
+  background: var(--accent-weak);
+  border-color: rgba(111, 191, 142, 0.35);
+}
+.lane-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg); /* reads bottom-to-top, like the floor plan */
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lane-count {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+@media (max-width: 640px) {
+  .floor-row {
+    height: 130px;
+  }
+  .floor-top {
+    width: 72%;
+  }
+}
+
+/* Clock floor plan: lanes with no cages are shown but cannot be opened. */
+.lane.lane-off:disabled,
+.lane.lane-off:disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.35;
+  color: var(--text-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+/* --- Age-coloured cage rows: rounded, spaced, soft (Plan, Today, Clock) --- */
+/* Table rows (Plan, Today): each cell paints the row colour (--row-bg), and
+   the end cells round off, so the row reads as one soft pill. */
+.cage-table.age-rows {
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+.cage-table.age-rows th {
+  border-bottom: none;
+}
+.cage-table.age-rows tr.age-row > td {
+  background: var(--row-bg, transparent);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  transition: filter 0.15s ease;
+}
+.cage-table.age-rows tr.age-row > td:first-child {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px 0 0 10px;
+  padding-left: 0.8rem;
+}
+.cage-table.age-rows tr.age-row > td:last-child {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0 10px 10px 0;
+  padding-right: 0.6rem;
+}
+.cage-table.age-rows tr.age-row:hover > td {
+  filter: brightness(1.12);
+}
+.cage-table.age-rows tr:not(.age-row) > td {
+  border-bottom: none;
+}
+
+/* Card rows (Clock). */
+.clock-row.age-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  margin-top: 6px;
+  padding: 0.5rem 0.8rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.clock-row.age-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .clock-row.age-card,
+  .cage-table.age-rows tr.age-row > td {
+    transition: none;
+  }
+  .clock-row.age-card:hover {
+    transform: none;
+  }
+}
+

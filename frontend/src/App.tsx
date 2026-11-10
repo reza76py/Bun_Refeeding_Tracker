@@ -1,33 +1,38 @@
+import type { ReactNode } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import type { Page } from "./api/types";
 import { useAuth } from "./auth";
 import Login from "./pages/Login";
 import Plan from "./pages/Plan";
 import Today from "./pages/Today";
 import Clock from "./pages/Clock";
+import Settings from "./pages/Settings";
 
-function TopBar() {
-  const { user, logout } = useAuth();
+/** Every page, in nav order. Which ones a user sees comes from /api/auth/me. */
+const PAGES: Record<Page, { path: string; label: string; element: ReactNode }> = {
+  plan: { path: "/plan", label: "GI", element: <Plan /> },
+  today: { path: "/today", label: "MNG", element: <Today /> },
+  clock: { path: "/clock", label: "MBR", element: <Clock /> },
+  settings: { path: "/settings", label: "Settings", element: <Settings /> },
+};
+
+function TopBar({ pages }: { pages: Page[] }) {
+  const { logout } = useAuth();
   const link = ({ isActive }: { isActive: boolean }) =>
     isActive ? "active" : "";
   return (
     <header className="topbar">
       <nav className="nav">
-        <NavLink to="/" end className={link}>
-          Plan
-        </NavLink>
-        <NavLink to="/today" className={link}>
-          Today
-        </NavLink>
-        <NavLink to="/clock" className={link}>
-          Clock
-        </NavLink>
+        {pages.map((p) => (
+          <NavLink key={p} to={PAGES[p].path} className={link}>
+            {PAGES[p].label}
+          </NavLink>
+        ))}
       </nav>
       <div className="btn-row">
-        {user && (
-          <button className="btn ghost small" onClick={() => logout()}>
-            Sign out
-          </button>
-        )}
+        <button className="btn ghost small" onClick={() => logout()}>
+          Sign out
+        </button>
       </div>
     </header>
   );
@@ -46,17 +51,33 @@ export default function App() {
 
   if (!user) return <Login />;
 
+  const pages = (user.pages ?? []).filter((p) => p in PAGES);
+  // Not allowed / unknown paths go to the user's first page.
+  const home = pages.length ? PAGES[pages[0]].path : null;
+
   return (
     <div className="app">
-      <TopBar />
+      <TopBar pages={pages} />
       <main className="content">
-        <Routes>
-          <Route path="/" element={<Plan />} />
-          <Route path="/plan" element={<Navigate to="/" replace />} />
-          <Route path="/today" element={<Today />} />
-          <Route path="/clock" element={<Clock />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {home ? (
+          <Routes>
+            {pages.map((p) => (
+              <Route
+                key={p}
+                path={PAGES[p].path}
+                element={
+                  <>
+                    {PAGES[p].element}
+                    <p className="page-name">{PAGES[p].label}</p>
+                  </>
+                }
+              />
+            ))}
+            <Route path="*" element={<Navigate to={home} replace />} />
+          </Routes>
+        ) : (
+          <p className="muted">This account has no pages.</p>
+        )}
       </main>
     </div>
   );

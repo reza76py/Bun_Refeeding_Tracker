@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Count, Max
 
 from tracker.calculations import Assumptions
 from tracker.models import AssumptionSet, Store
@@ -80,6 +80,38 @@ def create_assumption_version(owner, **fields) -> AssumptionSet:
         provenance=fields.get("provenance", "user_estimate"),
         notes=fields.get("notes", ""),
     )
+
+
+def get_shared_store() -> Store:
+    """The ONE store every role reads and writes (Plan, Today, Clock).
+
+    Chosen once, then remembered via Store.is_shared so it never moves: the
+    existing store with the most aisles (ties -> lowest id), which keeps the
+    data already entered. With no store at all, a "Shared" store owned by
+    the admin user is created."""
+    store = Store.objects.filter(is_shared=True).order_by("id").first()
+    if store is not None:
+        return store
+    with transaction.atomic():
+        store = (
+            Store.objects.select_for_update()
+            .annotate(n_aisles=Count("aisles"))
+            .order_by("-n_aisles", "id")
+            .first()
+        )
+        if store is None:
+            User = get_user_model()
+            owner = (
+                User.objects.filter(username="admin").first()
+                or User.objects.filter(is_superuser=True).order_by("id").first()
+                or User.objects.order_by("id").first()
+            )
+            if owner is None:
+                owner = User.objects.create_user("admin", password="admin", is_staff=True)
+            store = Store.objects.create(owner=owner, name="Shared")
+        Store.objects.filter(pk=store.pk).update(is_shared=True)
+        store.is_shared = True
+    return store
 
 
 def default_store(owner) -> Store:

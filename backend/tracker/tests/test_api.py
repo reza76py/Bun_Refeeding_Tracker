@@ -253,23 +253,21 @@ class AisleBayManagementTests(AuthMixin, APITestCase):
         resp = self.client.post(f"/api/aisles/{aisle_id}/bays/", body, format="json")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_other_users_aisle_is_not_accessible(self):
+    def test_other_users_see_the_shared_aisle(self):
+        # One shared workspace: another login sees and can manage the aisle.
         aisle_id = self._create_aisle("Aisle 15").json()["id"]
         self.client.force_authenticate(self.make_user("dave"))
-        self.assertEqual(
-            self.client.get(f"/api/aisles/{aisle_id}/").status_code,
-            status.HTTP_404_NOT_FOUND,
-        )
-        self.assertEqual(
-            self.client.delete(f"/api/aisles/{aisle_id}/").status_code,
-            status.HTTP_404_NOT_FOUND,
-        )
+        self.assertEqual(self.client.get(f"/api/aisles/{aisle_id}/").status_code, 200)
         resp = self.client.post(
             f"/api/aisles/{aisle_id}/bays/",
             {"bay_number": 1, "estimated_catalogue_lines": 10},
             format="json",
         )
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            self.client.delete(f"/api/aisles/{aisle_id}/").status_code,
+            status.HTTP_204_NO_CONTENT,
+        )
 
 
 class WholeAisleTotalTests(AuthMixin, APITestCase):
@@ -320,13 +318,13 @@ class WholeAisleTotalTests(AuthMixin, APITestCase):
             self._set_total(1_000_001).status_code, status.HTTP_400_BAD_REQUEST
         )
 
-    def test_whole_aisle_total_is_owner_scoped(self):
+    def test_whole_aisle_total_is_shared(self):
         self.client.force_authenticate(self.make_user("frank"))
-        self.assertEqual(self._set_total(999).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self._set_total(999).status_code, status.HTTP_200_OK)
         self.client.force_authenticate(self.user)
         self.assertEqual(
             self.client.get(f"/api/aisles/{self.aisle_id}/").json()["aisle_total_lines"],
-            0,
+            999,
         )
 
 
@@ -406,19 +404,19 @@ class AisleCageTests(AuthMixin, APITestCase):
         self.client.delete(f"/api/aisles/{self.aisle_id}/")
         self.assertFalse(AisleCage.objects.filter(aisle_id=self.aisle_id).exists())
 
-    def test_cages_are_owner_scoped(self):
+    def test_cages_are_shared(self):
         cage_id = self._add_cage("A10", 50).json()["id"]
         self.client.force_authenticate(self.make_user("hank"))
-        self.assertEqual(self._add_cage("Z9", 1).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self._add_cage("Z9", 1).status_code, status.HTTP_201_CREATED)
         self.assertEqual(
             self.client.patch(
                 f"/api/aisle-cages/{cage_id}/", {"lines": 1}, format="json"
             ).status_code,
-            status.HTTP_404_NOT_FOUND,
+            status.HTTP_200_OK,
         )
         self.assertEqual(
             self.client.delete(f"/api/aisle-cages/{cage_id}/").status_code,
-            status.HTTP_404_NOT_FOUND,
+            status.HTTP_204_NO_CONTENT,
         )
 
 
@@ -542,16 +540,18 @@ class SecondsPerLineTests(AuthMixin, APITestCase):
 
 
 class RemoveAllAislesTests(AuthMixin, APITestCase):
-    def test_remove_all_deletes_only_own_aisles_cages_and_bays(self):
-        from tracker.models import AisleCage
+    def test_remove_all_clears_the_shared_workspace_only(self):
+        from tracker.models import AisleCage, Store
 
         me = self.make_user("kim")
         other = self.make_user("lee")
         self.client.force_authenticate(other)
-        other_aisle = self.client.post("/api/aisles/", {"label": "Keep"}, format="json").json()["id"]
-
-        self.client.force_authenticate(me)
         a1 = self.client.post("/api/aisles/", {"label": "A1"}, format="json").json()["id"]
+        # An aisle outside the shared workspace (made after it was chosen).
+        outside = Aisle.objects.create(
+            store=Store.objects.create(owner=other, name="Old store"), label="Keep"
+        )
+        self.client.force_authenticate(me)
         a2 = self.client.post(
             "/api/aisles/", {"label": "A2", "detail_mode": "bays"}, format="json"
         ).json()["id"]
@@ -562,17 +562,18 @@ class RemoveAllAislesTests(AuthMixin, APITestCase):
             format="json",
         )
 
+        in_workspace = len(self.client.get("/api/aisles/").json())
+        self.assertGreaterEqual(in_workspace, 2)  # both users' aisles are shared
         r = self.client.delete("/api/aisles/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(r.json()["deleted_aisles"], 2)
+        self.assertEqual(r.json()["deleted_aisles"], in_workspace)
         self.assertEqual(self.client.get("/api/aisles/").json(), [])
         self.assertFalse(AisleCage.objects.filter(aisle_id=a1).exists())
         self.assertFalse(Bay.objects.filter(aisle_id=a2).exists())
         self.assertEqual(
             self.client.get("/api/catalogue/summary/").json()["combined_catalogue_lines"], 0
         )
-        # Another user's data is untouched.
-        self.assertTrue(Aisle.objects.filter(id=other_aisle).exists())
+        self.assertTrue(Aisle.objects.filter(id=outside.id).exists())
 
 
 class CageMinutesTests(AuthMixin, APITestCase):
@@ -658,9 +659,9 @@ class CageFeedTests(AuthMixin, APITestCase):
         self.assertEqual(self._put(self.a1, -1).status_code, 400)
         self.assertEqual(self._put(self.a1, "abc").status_code, 400)
 
-    def test_other_users_cage_is_404(self):
-        other = self.make_user("intruder")
-        self.client.force_authenticate(other)
-        self.assertEqual(self._put(self.a1, 50).status_code, 404)
-        self.assertEqual(self._summary()["aisles"], [])
+    def test_other_user_shares_today(self):
+        self._put(self.a1, 40)
+        self.client.force_authenticate(self.make_user("colleague"))
+        self.assertEqual(self._summary()["aisles"][0]["cages"][0]["percent"], 40)
+        self.assertEqual(self._put(self.a1, 50).status_code, 200)
 
