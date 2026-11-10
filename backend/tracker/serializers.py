@@ -114,6 +114,10 @@ class AisleCageSerializer(serializers.ModelSerializer):
             clash = AisleCage.objects.filter(aisle=aisle, code__iexact=value)
             if self.instance:
                 clash = clash.exclude(pk=self.instance.pk)
+            # A FINISHED cage (ended / 100%) frees its code: only active cages
+            # clash. The finished cage and its history are kept.
+            done = services.finished_cage_ids(aisle.store)
+            clash = clash.exclude(pk__in=done)
             if clash.exists():
                 raise serializers.ValidationError(
                     f"Cage {value} already exists in {aisle.label}."

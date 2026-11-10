@@ -192,11 +192,9 @@ class AisleCage(models.Model):
 
     class Meta:
         ordering = ["aisle_id", "code"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["aisle", "code"], name="unique_cage_code_per_aisle"
-            )
-        ]
+        # No DB-level unique (aisle, code): a finished cage keeps its code in
+        # history while a new active cage reuses it. Uniqueness among ACTIVE
+        # cages is enforced in AisleCageSerializer.validate_code.
 
     def __str__(self) -> str:
         return f"{self.aisle.label} / Cage {self.code}"

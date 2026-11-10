@@ -11,7 +11,14 @@ export default function Settings() {
 
   const load = useCallback(async () => {
     try {
-      setCages(await api.adminCages());
+      // Finished cages (ended / 100%) are hidden on every page, here too:
+      // keep only the cages the unfinished list still has.
+      const [all, unfinished] = await Promise.all([
+        api.adminCages(),
+        api.graphRunning(),
+      ]);
+      const live = new Set(unfinished.map((u) => u.cage_id));
+      setCages(all.filter((c) => live.has(c.cage_id)));
       setError(null);
     } catch {
       setError("Could not load.");
