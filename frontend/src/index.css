@@ -998,3 +998,61 @@ input.feed-check {
   }
 }
 
+
+/* --- Floor plan on phones: turned 90° so it fits the width ----------------
+   The two rows of lanes become two columns running down the screen (left:
+   Aisle 8 -> 16, right: Aisle 7 -> 2). Lanes become short horizontal strips
+   with a readable label and the cage icons on the right; shelves become thin
+   horizontal bars between them. Desktop / tablet are unchanged. */
+@media (max-width: 640px) {
+  .floor-wrap {
+    overflow-x: visible;
+  }
+  .floor {
+    /* row-reverse: the top row (7..2) goes right, the bottom row (8..16) left */
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.6rem;
+  }
+  .floor-row,
+  .floor-top {
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    gap: 3px;
+  }
+  .shelf {
+    flex: none;
+    min-width: 0;
+    height: 10px;
+  }
+  .lane {
+    flex: none;
+    min-width: 0;
+    min-height: 40px;
+    padding: 4px 8px;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .lane.has-cages {
+    align-items: center;
+    padding-bottom: 4px;
+  }
+  .lane-label {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+  .lane-cages {
+    position: static;
+    flex: 0 1 auto;
+    max-width: 62%;
+    justify-content: flex-end;
+  }
+  .lane-more {
+    width: auto;
+  }
+}
