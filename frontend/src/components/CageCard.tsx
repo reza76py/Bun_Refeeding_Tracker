@@ -6,10 +6,13 @@ import type { ReactNode } from "react";
 export function CageCard({
   code,
   hue,
+  spinning = false,
   detail,
   children,
 }: {
   code: string;
+  /** Slowly rotate: the cage is started and not ended yet. */
+  spinning?: boolean;
   /** From cageHue(): null when the cage is finished. */
   hue: number | null;
   /** Small line under the code, e.g. planned minutes. */
@@ -26,7 +29,7 @@ export function CageCard({
       className={finished ? "cage-card finished" : "cage-card"}
       style={{ ["--cage-glow" as string]: glow, ["--cage-wire" as string]: wire }}
     >
-      <RollCage wire={wire} face={face} side={side} />
+      <RollCage wire={wire} face={face} side={side} spinning={spinning} />
       <div className="cage-card-code">{code}</div>
       {detail && <div className="cage-card-detail">{detail}</div>}
       {children && <div className="cage-card-controls">{children}</div>}
@@ -43,13 +46,23 @@ const FX1 = 74;
 const FY0 = 18;
 const FY1 = 104;
 
-function RollCage({ wire, face, side }: { wire: string; face: string; side: string }) {
+function RollCage({
+  wire,
+  face,
+  side,
+  spinning,
+}: {
+  wire: string;
+  face: string;
+  side: string;
+  spinning: boolean;
+}) {
   const vertsFront = [32.4, 42.8, 53.2, 63.6];
   const rows = [35.2, 52.4, 69.6, 86.8];
   const sideCols = [1 / 3, 2 / 3];
   return (
     <svg
-      className="roll-cage"
+      className={spinning ? "roll-cage cage-spin" : "roll-cage"}
       viewBox="0 0 110 128"
       role="img"
       aria-hidden="true"

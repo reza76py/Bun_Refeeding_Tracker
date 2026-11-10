@@ -20,6 +20,8 @@ import {
   aisleLaneTint,
   cageHue,
   unfinishedIndex,
+  aisleRunningCount,
+  runningIds,
 } from "../lib/ageColour";
 
 /** Same store floor plan as GI / Member (same lanes and labels). */
@@ -113,6 +115,7 @@ export default function Today() {
   // --- one aisle: its cages with the existing % fed controls ---
   if (selected !== null && open && open.cages.length > 0) {
     const ages = unfinishedIndex(unfinished);
+    const runningNow = runningIds(unfinished);
     return (
       <div className="card">
         <div className="btn-row">
@@ -136,6 +139,7 @@ export default function Today() {
                 key={cage.cage_id}
                 cage={cage}
                 hue={cageHue(cage.cage_id, ages, now)}
+                spinning={runningNow.has(cage.cage_id)}
                 date={date}
                 onSave={save}
                 onManual={load}
@@ -162,7 +166,12 @@ export default function Today() {
         aria-label={cages ? `Aisle ${n}, ${cages} cage(s)` : `Aisle ${n} (no cages)`}
       >
         <span className="lane-label">Aisle {n}</span>
-        {cages > 0 && <LaneCages count={cages} />}
+        {cages > 0 && (
+          <LaneCages
+            count={cages}
+            running={aisle ? aisleRunningCount(aisle.label, unfinished) : 0}
+          />
+        )}
       </button>
     );
   };
@@ -196,6 +205,7 @@ export default function Today() {
 function FeedRow({
   cage,
   hue,
+  spinning,
   date,
   onSave,
   onManual,
@@ -203,6 +213,7 @@ function FeedRow({
   cage: FeedCage;
   /** Age colour (null = finished -> grey). */
   hue: number | null;
+  spinning: boolean;
   date: string;
   onSave: (cageId: number, percent: number) => Promise<void>;
   onManual: () => Promise<void>;
@@ -275,7 +286,7 @@ function FeedRow({
   }
 
   return (
-    <CageCard code={cage.code} hue={hue}>
+    <CageCard code={cage.code} hue={hue} spinning={spinning}>
       <div className="btn-row feed-controls">
         <label className="feed-tick">
           <input

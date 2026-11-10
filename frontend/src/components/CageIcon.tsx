@@ -1,9 +1,16 @@
 /** Small 3D wire roll-cage icon for the floor-plan lanes. Drawn in
  * currentColor, so it takes the lane's (age-tinted) text colour. */
-export function CageIcon({ size = 18 }: { size?: number }) {
+export function CageIcon({
+  size = 18,
+  spinning = false,
+}: {
+  size?: number;
+  /** Slowly rotate: the cage is started and not ended yet. */
+  spinning?: boolean;
+}) {
   return (
     <svg
-      className="cage-icon"
+      className={spinning ? "cage-icon cage-spin" : "cage-icon"}
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -36,13 +43,20 @@ export function CageIcon({ size = 18 }: { size?: number }) {
 /** Most icons drawn in one lane; beyond this a "+N" shows the rest. */
 const MAX_LANE_ICONS = 9;
 
-/** One small cage icon per cage in the lane (e.g. 3 cages -> 3 icons). */
-export function LaneCages({ count }: { count: number }) {
+/** One small cage icon per cage in the lane (e.g. 3 cages -> 3 icons). The
+ * first `running` of them rotate: that many cages are being worked on. */
+export function LaneCages({
+  count,
+  running = 0,
+}: {
+  count: number;
+  running?: number;
+}) {
   const shown = Math.min(count, MAX_LANE_ICONS);
   return (
     <span className="lane-cages" aria-hidden="true">
       {Array.from({ length: shown }, (_, i) => (
-        <CageIcon key={i} size={13} />
+        <CageIcon key={i} size={13} spinning={i < running} />
       ))}
       {count > shown && <span className="lane-more">+{count - shown}</span>}
     </span>

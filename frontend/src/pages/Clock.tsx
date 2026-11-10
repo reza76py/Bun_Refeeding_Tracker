@@ -10,6 +10,7 @@ import {
   aisleLaneTint,
   cageHue,
   unfinishedIndex,
+  aisleRunningCount,
 } from "../lib/ageColour";
 
 /** Same store floor plan as the Plan page (same lanes and labels). */
@@ -95,7 +96,12 @@ export default function Clock() {
               const off = busy === c.cage_id;
               const last = c.last_session;
               return (
-                <CageCard key={c.cage_id} code={c.code} hue={cageHue(c.cage_id, ages, now)}>
+                <CageCard
+                  key={c.cage_id}
+                  code={c.code}
+                  hue={cageHue(c.cage_id, ages, now)}
+                  spinning={c.open_session !== null}
+                >
                   {c.open_session ? (
                     <>
                       <span className="small">
@@ -159,7 +165,12 @@ export default function Clock() {
         aria-label={cages ? `Aisle ${n}, ${cages} cage(s)` : `Aisle ${n} (no cages)`}
       >
         <span className="lane-label">Aisle {n}</span>
-        {cages > 0 && <LaneCages count={cages} />}
+        {cages > 0 && (
+          <LaneCages
+            count={cages}
+            running={aisle ? aisleRunningCount(aisle.label, unfinished) : 0}
+          />
+        )}
       </button>
     );
   };

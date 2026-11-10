@@ -20,7 +20,8 @@ from tracker.models import AisleCage, CageFeed, CageSession
 
 
 class GraphRunningView(APIView):
-    """GET /api/graph/running/: [{cage_id, code, aisle_label, created_at}],
+    """GET /api/graph/running/: [{cage_id, code, aisle_label, created_at,
+    running}],
     oldest (longest unfinished) first."""
 
     permission_classes = [IsAuthenticated]  # all roles, not page-gated
@@ -28,9 +29,12 @@ class GraphRunningView(APIView):
     def get(self, request):
         ended = CageSession.objects.filter(cage=OuterRef("pk"), end_at__isnull=False)
         fed = CageFeed.objects.filter(cage=OuterRef("pk"), percent=100)
+        open_session = CageSession.objects.filter(
+            cage=OuterRef("pk"), start_at__isnull=False, end_at__isnull=True
+        )
         cages = (
             AisleCage.objects.filter(aisle__store=services.get_shared_store())
-            .annotate(ended=Exists(ended), fed=Exists(fed))
+            .annotate(ended=Exists(ended), fed=Exists(fed), running=Exists(open_session))
             .filter(ended=False, fed=False)
             .select_related("aisle")
             .order_by("created_at", "id")
@@ -42,6 +46,8 @@ class GraphRunningView(APIView):
                     "code": c.code,
                     "aisle_label": c.aisle.label,
                     "created_at": c.created_at,
+                    # Started on Clock and not ended yet (being worked on).
+                    "running": c.running,
                 }
                 for c in cages
             ]

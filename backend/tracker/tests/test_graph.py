@@ -73,3 +73,15 @@ class GraphUnfinishedTests(APITestCase):
     def test_requires_login(self):
         self.client.logout()
         self.assertIn(self.client.get("/api/graph/running/").status_code, (401, 403))
+
+    def test_running_flag(self):
+        started = self._cage("R1")
+        self._cage("W1")  # created, never started
+        self.client.post("/api/clock/start", {"cage_id": started}, format="json")
+        flags = {r["code"]: r["running"] for r in self.client.get("/api/graph/running/").json()}
+        self.assertEqual(flags, {"R1": True, "W1": False})
+        # Cancelling stops it running (the cage is still unfinished).
+        self.client.post("/api/clock/cancel", {"cage_id": started}, format="json")
+        flags = {r["code"]: r["running"] for r in self.client.get("/api/graph/running/").json()}
+        self.assertEqual(flags, {"R1": False, "W1": False})
+

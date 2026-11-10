@@ -229,6 +229,8 @@ export interface RunningCage {
   code: string;
   aisle_label: string;
   created_at: string; // ISO timestamp: when the cage was added on Plan
+  /** Started on Clock and not ended yet (being worked on). */
+  running: boolean;
 }
 
 // --- Settings (ADMIN only): cage creation times ------------------------------

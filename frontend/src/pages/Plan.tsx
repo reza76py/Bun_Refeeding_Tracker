@@ -16,6 +16,8 @@ import {
   cageHue,
   laneTint,
   unfinishedIndex,
+  aisleRunningCount,
+  runningIds,
 } from "../lib/ageColour";
 
 /** Store floor plan: shelves are static blocks, the lanes between them are
@@ -123,6 +125,7 @@ export default function Plan() {
           autoOpen={open.cages.length === 0}
           onChanged={load}
           unfinished={unfinishedIndex(unfinished)}
+          running={runningIds(unfinished)}
           now={now}
         />
       </div>
@@ -155,7 +158,12 @@ export default function Plan() {
         aria-label={`Aisle ${n}${cages ? `, ${cages} cage(s)` : ""}`}
       >
         <span className="lane-label">Aisle {n}</span>
-        {cages > 0 && <LaneCages count={cages} />}
+        {cages > 0 && (
+          <LaneCages
+            count={cages}
+            running={aisle ? aisleRunningCount(aisle.label, unfinished) : 0}
+          />
+        )}
       </button>
     );
   };
@@ -218,6 +226,7 @@ function AisleBlock({
   autoOpen,
   onChanged,
   unfinished,
+  running,
   now,
 }: {
   tone: number;
@@ -226,6 +235,8 @@ function AisleBlock({
   onChanged: () => Promise<void>;
   /** cage_id -> created_at (ms) of unfinished cages, for row colours. */
   unfinished: Map<number, number>;
+  /** cage_ids started on Clock and not ended (their cage rotates). */
+  running: Set<number>;
   now: number;
 }) {
   const [renaming, setRenaming] = useState(false);
@@ -388,6 +399,7 @@ function AisleBlock({
               key={cage.id}
               cage={cage}
               hue={cageHue(cage.id, unfinished, now)}
+              spinning={running.has(cage.id)}
               disabled={busy}
               onSave={(c, m) =>
                 run(async () => {
@@ -466,6 +478,7 @@ function AisleBlock({
 function CageTile({
   cage,
   hue,
+  spinning,
   disabled,
   onSave,
   onDelete,
@@ -473,6 +486,7 @@ function CageTile({
   cage: AisleCage;
   /** Age colour (null = finished -> grey). */
   hue: number | null;
+  spinning: boolean;
   disabled: boolean;
   onSave: (code: string, minutes: number | null) => Promise<boolean>;
   onDelete: () => void;
@@ -492,7 +506,12 @@ function CageTile({
 
   if (!editing) {
     return (
-      <CageCard code={cage.code} hue={hue} detail={dur(cage.estimated_seconds)}>
+      <CageCard
+        code={cage.code}
+        hue={hue}
+        spinning={spinning}
+        detail={dur(cage.estimated_seconds)}
+      >
         <div className="btn-row">
           <button
             className="btn small"
@@ -535,7 +554,7 @@ function CageTile({
   };
 
   return (
-    <CageCard code={cage.code} hue={hue}>
+    <CageCard code={cage.code} hue={hue} spinning={spinning}>
       <input
         className="inline-input"
         aria-label="Cage number"

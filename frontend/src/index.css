@@ -910,3 +910,22 @@ input.feed-check {
   opacity: 0.5;
 }
 
+/* A started-but-not-ended cage slowly turns (lane icons + cage cards). */
+@keyframes cage-turn {
+  from {
+    transform: perspective(300px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(300px) rotateY(360deg);
+  }
+}
+.cage-spin {
+  animation: cage-turn 3.5s linear infinite;
+  transform-origin: 50% 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cage-spin {
+    animation: none;
+  }
+}
+

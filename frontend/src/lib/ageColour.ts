@@ -73,3 +73,15 @@ export function cageHue(
   return created === undefined ? null : ageHue((now - created) / 1000);
 }
 
+/** cage_ids that are running (started on Clock, not ended). */
+export const runningIds = (rows: RunningCage[]) =>
+  new Set(rows.filter((r) => r.running).map((r) => r.cage_id));
+
+/** How many cages in this aisle are running (matched by aisle label). */
+export function aisleRunningCount(label: string, rows: RunningCage[]) {
+  const name = aisleName(label).trim().toLowerCase();
+  return rows.filter(
+    (r) => r.running && aisleName(r.aisle_label).trim().toLowerCase() === name
+  ).length;
+}
+
