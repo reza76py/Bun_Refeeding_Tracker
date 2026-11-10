@@ -3,16 +3,17 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import { api, ApiError } from "../api/client";
 import type { Aisle, AisleCage, RunningCage } from "../api/types";
+import { CageCard } from "../components/CageCard";
+import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
 import { aisleName, dur } from "../lib/format";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
 import {
   ageHue,
-  cageRowVars,
+  cageHue,
   laneTint,
   unfinishedIndex,
 } from "../lib/ageColour";
@@ -154,7 +155,7 @@ export default function Plan() {
         aria-label={`Aisle ${n}${cages ? `, ${cages} cage(s)` : ""}`}
       >
         <span className="lane-label">Aisle {n}</span>
-        {cages > 0 && <span className="lane-count">{cages}</span>}
+        {cages > 0 && <LaneCages count={cages} />}
       </button>
     );
   };
@@ -380,91 +381,68 @@ function AisleBlock({
 
       {error && <Banner kind="error">{error}</Banner>}
 
-      {(aisle.cages.length > 0 || adding) && (
-        <div className="table-wrap" style={{ marginTop: "0.5rem" }}>
-          <table className="cage-table age-rows">
-            <colgroup>
-              <col />
-              <col className="col-time" />
-              <col className="col-actions" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Cage</th>
-                <th className="num">Time</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {aisle.cages.map((cage) => (
-                <CageRow
-                  key={cage.id}
-                  cage={cage}
-                  rowStyle={cageRowVars(cage.id, unfinished, now)}
-                  disabled={busy}
-                  onSave={(c, m) =>
-                    run(async () => {
-                      await api.updateAisleCage(cage.id, { code: c, minutes: m });
-                      await onChanged();
-                    })
-                  }
-                  onDelete={() => deleteCage(cage)}
-                />
-              ))}
-              {adding && (
-                <tr>
-                  <td>
-                    <input
-                      ref={codeRef}
-                      className="inline-input"
-                      aria-label="Cage number"
-                      placeholder="Cage number"
-                      maxLength={20}
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addCage();
-                        }
-                      }}
-                    />
-                  </td>
-                  <td className="num">
-                    <input
-                      className="inline-input"
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      max={1_440}
-                      aria-label="Minutes"
-                      placeholder="Minutes"
-                      value={minutes}
-                      onChange={(e) => setMinutes(num(e.target.value))}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addCage();
-                        }
-                      }}
-                    />
-                  </td>
-                  <td className="num">
-                    <div className="btn-row" style={{ justifyContent: "flex-end" }}>
-                      <button
-                        className="btn primary small"
-                        type="button"
-                        onClick={addCage}
-                        disabled={busy}
-                      >
-                        {busy ? "Saving…" : "Add"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {aisle.cages.length > 0 && (
+        <div className="cage-grid">
+          {aisle.cages.map((cage) => (
+            <CageTile
+              key={cage.id}
+              cage={cage}
+              hue={cageHue(cage.id, unfinished, now)}
+              disabled={busy}
+              onSave={(c, m) =>
+                run(async () => {
+                  await api.updateAisleCage(cage.id, { code: c, minutes: m });
+                  await onChanged();
+                })
+              }
+              onDelete={() => deleteCage(cage)}
+            />
+          ))}
+        </div>
+      )}
+
+      {adding && (
+        <div className="btn-row cage-add">
+          <input
+            ref={codeRef}
+            className="inline-input"
+            aria-label="Cage number"
+            placeholder="Cage number"
+            maxLength={20}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCage();
+              }
+            }}
+          />
+          <input
+            className="inline-input"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={1_440}
+            aria-label="Minutes"
+            placeholder="Minutes"
+            value={minutes}
+            onChange={(e) => setMinutes(num(e.target.value))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCage();
+              }
+            }}
+          />
+          <button
+            className="btn primary small"
+            type="button"
+            onClick={addCage}
+            disabled={busy}
+          >
+            {busy ? "Saving…" : "Add"}
+          </button>
         </div>
       )}
 
@@ -483,17 +461,18 @@ function AisleBlock({
   );
 }
 
-/** One cage: text with Edit / Delete; Edit shows cage number + minutes. */
-function CageRow({
+/** One cage as a roll-cage card: minutes + Edit / Delete; Edit shows the
+ * cage number + minutes inputs with Save / Cancel. */
+function CageTile({
   cage,
-  rowStyle,
+  hue,
   disabled,
   onSave,
   onDelete,
 }: {
   cage: AisleCage;
-  /** Age colour: grey when finished, green -> red while unfinished. */
-  rowStyle: CSSProperties;
+  /** Age colour (null = finished -> grey). */
+  hue: number | null;
   disabled: boolean;
   onSave: (code: string, minutes: number | null) => Promise<boolean>;
   onDelete: () => void;
@@ -513,34 +492,26 @@ function CageRow({
 
   if (!editing) {
     return (
-      <tr className="age-row" style={rowStyle}>
-        <td>
-          <strong>{cage.code}</strong>
-        </td>
-        <td className="num">
-          <strong>{dur(cage.estimated_seconds)}</strong>
-        </td>
-        <td className="num">
-          <div className="btn-row" style={{ justifyContent: "flex-end" }}>
-            <button
-              className="btn small"
-              onClick={() => setEditing(true)}
-              disabled={disabled}
-              aria-label={`Edit ${cage.code}`}
-            >
-              Edit
-            </button>
-            <button
-              className="btn danger small"
-              onClick={onDelete}
-              disabled={disabled}
-              aria-label={`Delete ${cage.code}`}
-            >
-              Delete
-            </button>
-          </div>
-        </td>
-      </tr>
+      <CageCard code={cage.code} hue={hue} detail={dur(cage.estimated_seconds)}>
+        <div className="btn-row">
+          <button
+            className="btn small"
+            onClick={() => setEditing(true)}
+            disabled={disabled}
+            aria-label={`Edit ${cage.code}`}
+          >
+            Edit
+          </button>
+          <button
+            className="btn danger small"
+            onClick={onDelete}
+            disabled={disabled}
+            aria-label={`Delete ${cage.code}`}
+          >
+            Delete
+          </button>
+        </div>
+      </CageCard>
     );
   }
 
@@ -564,44 +535,38 @@ function CageRow({
   };
 
   return (
-    <tr className="age-row" style={rowStyle}>
-      <td>
-        <input
-          className="inline-input"
-          aria-label="Cage number"
-          maxLength={20}
-          value={code}
-          disabled={disabled}
-          onKeyDown={onKey}
-          onChange={(e) => setCode(e.target.value)}
-          autoFocus
-        />
-      </td>
-      <td className="num">
-        <input
-          className="inline-input"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={1_440}
-          placeholder="min"
-          aria-label={`Minutes for ${cage.code}`}
-          value={mins}
-          disabled={disabled}
-          onKeyDown={onKey}
-          onChange={(e) => setMins(num(e.target.value))}
-        />
-      </td>
-      <td className="num">
-        <div className="btn-row" style={{ justifyContent: "flex-end" }}>
-          <button className="btn primary small" onClick={save} disabled={disabled}>
-            Save
-          </button>
-          <button className="btn ghost small" onClick={cancel} disabled={disabled}>
-            Cancel
-          </button>
-        </div>
-      </td>
-    </tr>
+    <CageCard code={cage.code} hue={hue}>
+      <input
+        className="inline-input"
+        aria-label="Cage number"
+        maxLength={20}
+        value={code}
+        disabled={disabled}
+        onKeyDown={onKey}
+        onChange={(e) => setCode(e.target.value)}
+        autoFocus
+      />
+      <input
+        className="inline-input"
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={1_440}
+        placeholder="min"
+        aria-label={`Minutes for ${cage.code}`}
+        value={mins}
+        disabled={disabled}
+        onKeyDown={onKey}
+        onChange={(e) => setMins(num(e.target.value))}
+      />
+      <div className="btn-row">
+        <button className="btn primary small" onClick={save} disabled={disabled}>
+          Save
+        </button>
+        <button className="btn ghost small" onClick={cancel} disabled={disabled}>
+          Cancel
+        </button>
+      </div>
+    </CageCard>
   );
 }

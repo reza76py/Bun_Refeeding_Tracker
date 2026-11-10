@@ -3,10 +3,11 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import { api } from "../api/client";
 import type { FeedAisle, FeedCage, FeedSummary, RunningCage } from "../api/types";
+import { CageCard } from "../components/CageCard";
+import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
 import {
   aisleName,
@@ -17,7 +18,7 @@ import {
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
 import {
   aisleLaneTint,
-  cageRowVars,
+  cageHue,
   unfinishedIndex,
 } from "../lib/ageColour";
 
@@ -129,33 +130,17 @@ export default function Today() {
               · {open.percent_fed}% fed
             </span>
           </h3>
-          <div className="table-wrap" style={{ marginTop: "0.5rem" }}>
-            <table className="cage-table age-rows">
-              <colgroup>
-                <col />
-                <col className="col-fed" />
-                <col className="col-pct" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Cage</th>
-                  <th className="num">Fed</th>
-                  <th className="num">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {open.cages.map((cage) => (
-                  <FeedRow
-                    key={cage.cage_id}
-                    cage={cage}
-                    rowStyle={cageRowVars(cage.cage_id, ages, now)}
-                    date={date}
-                    onSave={save}
-                    onManual={load}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="cage-grid">
+            {open.cages.map((cage) => (
+              <FeedRow
+                key={cage.cage_id}
+                cage={cage}
+                hue={cageHue(cage.cage_id, ages, now)}
+                date={date}
+                onSave={save}
+                onManual={load}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -177,7 +162,7 @@ export default function Today() {
         aria-label={cages ? `Aisle ${n}, ${cages} cage(s)` : `Aisle ${n} (no cages)`}
       >
         <span className="lane-label">Aisle {n}</span>
-        {cages > 0 && <span className="lane-count">{cages}</span>}
+        {cages > 0 && <LaneCages count={cages} />}
       </button>
     );
   };
@@ -210,14 +195,14 @@ export default function Today() {
 
 function FeedRow({
   cage,
-  rowStyle,
+  hue,
   date,
   onSave,
   onManual,
 }: {
   cage: FeedCage;
-  /** Age colour (grey when finished, green -> red while unfinished). */
-  rowStyle: CSSProperties;
+  /** Age colour (null = finished -> grey). */
+  hue: number | null;
   date: string;
   onSave: (cageId: number, percent: number) => Promise<void>;
   onManual: () => Promise<void>;
@@ -290,12 +275,9 @@ function FeedRow({
   }
 
   return (
-    <>
-      <tr className="age-row" style={rowStyle}>
-        <td>
-          <strong>{cage.code}</strong>
-        </td>
-        <td className="num">
+    <CageCard code={cage.code} hue={hue}>
+      <div className="btn-row feed-controls">
+        <label className="feed-tick">
           <input
             type="checkbox"
             className="feed-check"
@@ -304,71 +286,65 @@ function FeedRow({
             disabled={asking}
             onChange={(e) => setPercent(e.target.checked ? 100 : 0)}
           />
-        </td>
-        <td className="num">
-          {!done && (
-            <input
-              className="inline-input"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={99}
-              aria-label={`${cage.code} % fed`}
-              value={value}
-              disabled={asking}
-              onFocus={(e) => {
-                typing.current = true;
-                e.target.select();
-              }}
-              onBlur={() => {
-                typing.current = false;
-                commit();
-              }}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              style={{ maxWidth: 70 }}
-            />
-          )}
-        </td>
-      </tr>
+          <span className="small">Fed</span>
+        </label>
+        {!done && (
+          <input
+            className="inline-input"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={99}
+            aria-label={`${cage.code} % fed`}
+            value={value}
+            disabled={asking}
+            onFocus={(e) => {
+              typing.current = true;
+              e.target.select();
+            }}
+            onBlur={() => {
+              typing.current = false;
+              commit();
+            }}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            style={{ maxWidth: 70 }}
+          />
+        )}
+        {!done && <span className="small muted">%</span>}
+      </div>
       {asking && (
-        <tr className="manual-row">
-          <td colSpan={3}>
-            <div className="btn-row">
-              <input
-                type="datetime-local"
-                aria-label={`${cage.code} start`}
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                autoFocus
-              />
-              <input
-                type="datetime-local"
-                aria-label={`${cage.code} end`}
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-              <button
-                className="btn primary small"
-                onClick={confirm}
-                disabled={busy}
-              >
-                {busy ? "Saving…" : "Save"}
-              </button>
-              <button
-                className="btn ghost small"
-                onClick={() => setAsking(false)}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-            </div>
-            {err && <div className="small" style={{ color: "var(--danger)" }}>{err}</div>}
-          </td>
-        </tr>
+        <div className="manual-prompt">
+          <input
+            type="datetime-local"
+            aria-label={`${cage.code} start`}
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            autoFocus
+          />
+          <input
+            type="datetime-local"
+            aria-label={`${cage.code} end`}
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+          />
+          <div className="btn-row">
+            <button className="btn primary small" onClick={confirm} disabled={busy}>
+              {busy ? "Saving…" : "Save"}
+            </button>
+            <button
+              className="btn ghost small"
+              onClick={() => setAsking(false)}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          </div>
+          {err && <div className="small" style={{ color: "var(--danger)" }}>{err}</div>}
+        </div>
       )}
-    </>
+    </CageCard>
   );
 }

@@ -62,3 +62,14 @@ export function cageRowVars(
   return { "--row-bg": bg } as CSSProperties;
 }
 
+/** Age hue for one cage on the same scale (null = finished -> grey). Used by
+ * CageCard, so a cage graphic matches its row/lane colour. */
+export function cageHue(
+  cageId: number,
+  unfinished: Map<number, number>,
+  now: number
+): number | null {
+  const created = unfinished.get(cageId);
+  return created === undefined ? null : ageHue((now - created) / 1000);
+}
+

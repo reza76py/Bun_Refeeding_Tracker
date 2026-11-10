@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, clockExportUrl } from "../api/client";
 import type { ClockAisle, ClockSummary, RunningCage } from "../api/types";
+import { CageCard } from "../components/CageCard";
+import { LaneCages } from "../components/CageIcon";
 import { Banner, Loading } from "../components/ui";
 import { aisleName, durDays, stamp } from "../lib/format";
 import { useRefetchOnFocus } from "../lib/useRefetchOnFocus";
 import {
   aisleLaneTint,
-  cageRowStyle,
+  cageHue,
   unfinishedIndex,
 } from "../lib/ageColour";
 
@@ -88,40 +90,39 @@ export default function Clock() {
         {error && <Banner kind="error">{error}</Banner>}
         <div className={`aisle-block aisle-tone-${ALL_LANES.indexOf(selected) % 4}`}>
           <h3 style={{ margin: 0 }}>{aisleName(open.label)}</h3>
-          {open.cages.map((c) => {
-            const off = busy === c.cage_id;
-            const last = c.last_session;
-            return (
-              <div
-                key={c.cage_id}
-                className="clock-row age-card"
-                style={cageRowStyle(c.cage_id, ages, now)}
-              >
-                <strong>{c.code}</strong>
-                <div className="btn-row">
+          <div className="cage-grid">
+            {open.cages.map((c) => {
+              const off = busy === c.cage_id;
+              const last = c.last_session;
+              return (
+                <CageCard key={c.cage_id} code={c.code} hue={cageHue(c.cage_id, ages, now)}>
                   {c.open_session ? (
                     <>
-                      <span>Running since {stamp(c.open_session.start_at)}</span>
-                      <button
-                        className="btn primary clock-btn"
-                        onClick={() => act(c.cage_id, api.clockEnd)}
-                        disabled={off}
-                      >
-                        End
-                      </button>
-                      <button
-                        className="btn ghost small"
-                        onClick={() => {
-                          if (window.confirm(`Cancel the running session for ${c.code}?`))
-                            act(c.cage_id, api.clockCancel);
-                        }}
-                        disabled={off}
-                      >
-                        Cancel
-                      </button>
+                      <span className="small">
+                        Running since {stamp(c.open_session.start_at)}
+                      </span>
+                      <div className="btn-row">
+                        <button
+                          className="btn primary clock-btn"
+                          onClick={() => act(c.cage_id, api.clockEnd)}
+                          disabled={off}
+                        >
+                          End
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          onClick={() => {
+                            if (window.confirm(`Cancel the running session for ${c.code}?`))
+                              act(c.cage_id, api.clockCancel);
+                          }}
+                          disabled={off}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </>
                   ) : last ? (
-                    <span>
+                    <span className="small">
                       Start {stamp(last.start_at)} → End {stamp(last.end_at)} ·{" "}
                       <strong>{durDays(last.duration_seconds)}</strong>
                     </span>
@@ -134,10 +135,10 @@ export default function Clock() {
                       Start
                     </button>
                   )}
-                </div>
-              </div>
-            );
-          })}
+                </CageCard>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -158,7 +159,7 @@ export default function Clock() {
         aria-label={cages ? `Aisle ${n}, ${cages} cage(s)` : `Aisle ${n} (no cages)`}
       >
         <span className="lane-label">Aisle {n}</span>
-        {cages > 0 && <span className="lane-count">{cages}</span>}
+        {cages > 0 && <LaneCages count={cages} />}
       </button>
     );
   };

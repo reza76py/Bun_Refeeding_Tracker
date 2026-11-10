@@ -770,3 +770,143 @@ input.feed-check {
   }
 }
 
+/* --- Roll-cage cards (Plan, Today, Clock): a responsive, wrapping grid ---- */
+.cage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.cage-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.6rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    radial-gradient(120% 80% at 50% 25%, var(--cage-glow, transparent), transparent 70%),
+    var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
+}
+.cage-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+.cage-card .roll-cage {
+  width: 96px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+}
+.cage-card.finished .roll-cage {
+  opacity: 0.75;
+}
+.cage-card-code {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.cage-card-detail {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: -0.2rem;
+}
+.cage-card-controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
+}
+.cage-card-controls .btn-row {
+  justify-content: center;
+}
+.cage-card-controls .inline-input {
+  max-width: 100%;
+}
+.cage-card .btn.clock-btn {
+  min-width: 0;
+  width: 100%;
+}
+.feed-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+.manual-prompt {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.manual-prompt input[type="datetime-local"] {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.cage-add {
+  margin-top: 0.75rem;
+}
+.cage-add .inline-input {
+  flex: 1 1 120px;
+  max-width: 180px;
+}
+@media (max-width: 640px) {
+  .cage-grid {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+    gap: 0.6rem;
+  }
+  .cage-card .roll-cage {
+    width: 84px;
+  }
+  .cage-card .btn.clock-btn {
+    flex: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cage-card {
+    transition: none;
+  }
+  .cage-card:hover {
+    transform: none;
+  }
+}
+
+/* Lanes with cages: a small cage icon (in the lane's tint) instead of the
+   count, and the "Aisle N" label faded; empty lanes keep a clear label. */
+.lane-cages {
+  position: absolute;
+  top: 4px;
+  left: 2px;
+  right: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1;
+}
+.lane-cages .cage-icon {
+  display: block;
+}
+.lane-more {
+  width: 100%;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+/* With cage icons on top, the label sits at the bottom of the lane. */
+.lane.has-cages {
+  align-items: flex-end;
+  padding-bottom: 6px;
+}
+.lane.has-cages .lane-label {
+  opacity: 0.5;
+}
+
