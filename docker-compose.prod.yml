@@ -1,4 +1,37 @@
 services:
+  # MySQL for THIS app only. Credentials come from ./.env (written by the
+  # deploy workflow); the password is never stored in this file. The root
+  # password is random and unused (the app connects as DB_USER).
+  # Lean settings for a small (4 GB) server.
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    command:
+      - --innodb-buffer-pool-size=64M
+      - --innodb-log-buffer-size=8M
+      - --performance-schema=OFF
+      - --max-connections=40
+      - --table-open-cache=200
+      - --skip-name-resolve
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    mem_limit: 512m
+    volumes:
+      - mysql_data:/var/lib/mysql
+    expose:
+      - "3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
   backend:
     image: ghcr.io/reza76py/bun_refeeding_tracker-backend:latest
     restart: unless-stopped
@@ -9,6 +42,9 @@ services:
       - backend_static:/app/staticfiles
     expose:
       - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "manage.py", "check"]
       interval: 30s
@@ -25,5 +61,6 @@ services:
         condition: service_healthy
 
 volumes:
-  backend_data:
+  backend_data: # SQLite file (kept: rollback with DB_ENGINE=sqlite)
   backend_static:
+  mysql_data:

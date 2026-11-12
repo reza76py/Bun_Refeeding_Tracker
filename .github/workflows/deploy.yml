@@ -58,8 +58,12 @@ jobs:
               echo "DJANGO_ALLOWED_HOSTS=refeeding.rezteche.com"
               echo "DJANGO_CSRF_TRUSTED_ORIGINS=https://refeeding.rezteche.com"
               echo "DJANGO_SECURE_COOKIES=true"
-              echo "DB_ENGINE=sqlite"
-              echo "DB_NAME=/app/data/db.sqlite3"
+              echo "DB_ENGINE=mysql"
+              echo "DB_HOST=db"
+              echo "DB_PORT=3306"
+              echo "DB_NAME=refeeding"
+              echo "DB_USER=refeeding"
+              echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
             } > /var/www/refeeding-tracker/.env
             chmod 600 /var/www/refeeding-tracker/.env
             cd /var/www/refeeding-tracker
